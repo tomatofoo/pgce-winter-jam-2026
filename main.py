@@ -9,7 +9,7 @@ from numbers import Real
 import pygame as pg
 from pygame.typing import Point
 
-
+clipline doesn't work with floats
 def load_img(*args: str, size: Point=None) -> pg.Surface:
     img = pg.image.load(os.path.join('data', 'images', *args))
     if size is not None:
@@ -236,7 +236,7 @@ class Puck(Entity):
         self._pos[0] += self._velocity[0] * rel_game_speed
         entity_rect = self.rect
         for line in self._get_lines_around():
-            print(self.rect, line)
+            print(line, entity_rect)
             if entity_rect.clipline(line):
                 if self._velocity[0] > 0:
                     entity_rect.right = rect.left
