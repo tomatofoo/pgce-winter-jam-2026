@@ -21,19 +21,19 @@ def load_img(*args: str, size: Point=None) -> pg.Surface:
 def gen_tile_key(obj: Point):
     return f'{int(math.floor(obj[0]))};{int(math.floor(obj[1]))}'
 
-def get_line_x(line: tuple[Point], y: Real) -> Real:
+def get_line_x(line: tuple[Point], y: Real, do_clamp: bool=1) -> Real:
     point0 = pg.Vector2(line[0])
     point1 = pg.Vector2(line[1])
     difference = point1[1] - point0[1]
     t = (y - point0[1]) / difference if difference else 0
-    return pg.math.lerp(point0[0], point1[0], t, 0)
+    return pg.math.lerp(point0[0], point1[0], t, do_clamp)
 
-def get_line_y(line: tuple[Point], x: Real) -> Real:
+def get_line_y(line: tuple[Point], x: Real, do_clamp: bool=1) -> Real:
     point0 = pg.Vector2(line[0])
     point1 = pg.Vector2(line[1])
     difference = point1[0] - point0[0]
     t = (x - point0[0]) / difference if difference else 0
-    return pg.math.lerp(point0[1], point1[1], t, 0)
+    return pg.math.lerp(point0[1], point1[1], t, do_clamp)
 
 
 class Level(object):
@@ -248,8 +248,15 @@ class Puck(Entity):
     def health(self: Self, value: int) -> None:
         self._health = value
 
-    def bounce(self: Self, line: tuple[Point]) -> None:
-        pass
+    def _bounce(self: Self, line: tuple[Point]) -> None:
+        difference = line[1][0] - line[0][0]
+        angle = math.atan(
+            (line[1][1] - line[0][1])
+            / difference
+        ) if difference else 0
+        self._velocity.rotate_ip(
+            (angle + self._velocity.angle) * 2
+        )
 
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
@@ -258,16 +265,21 @@ class Puck(Entity):
         entity_rect = self.rect(scale)
         for line in self._get_lines_around(scale):
             if entity_rect.clipline(line):
+                # The +1 is scaled down by scale (100)
+                # It accounts for inaccuracies
+                # Yes I know it isn't pretty but its a game jam
                 if self._velocity[0] > 0:
                     entity_rect.right = min(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
-                    ) - SMALL * scale
+                    ) - 1
                 elif self._velocity[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
-                    ) + SMALL * scale
+                    ) + 1
+
+                self._bounce(line)
                 
                 self._pos[0] = entity_rect.centerx / scale
                 self._health = max(self._health - 1, 0)
@@ -280,13 +292,15 @@ class Puck(Entity):
                     entity_rect.bottom = min(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
-                    ) - SMALL * scale
+                    ) - 1
                 elif self._velocity[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right), 
-                    ) + SMALL * scale
+                    ) + 1
 
+                self._bounce(line)
+                
                 self._pos[1] = entity_rect.centery / scale
                 self._health = max(self._health - 1, 0)
 
@@ -349,7 +363,7 @@ class Camera(object):
         )
 
     def update(self: Self, rel_game_speed: Real, follow: pg.Vector2) -> None:
-        mult = (1 - (1 - 0.01))**rel_game_speed
+        mult = (1 - (1 - 0.025))**rel_game_speed
         self._pos += (follow - self._pos) * mult
 
     def render(self: Self, surf: pg.Surface) -> None:
@@ -413,10 +427,13 @@ class Game(object):
                 '0;0': {
                     'texture': 0,
                     'lines': (
-                        ((0, 0), (1, 0)),
-                        ((1, 0), (1, 1)),
-                        ((1, 1), (0, 1)),
-                        ((0, 1), (0, 0)),
+                        ((0, 0), (1, 1)),
+                        ((0, 0), (0, 1)),
+                        ((0, 1), (1, 1)),
+                        # ((0, 0), (1, 0)),
+                        # ((1, 0), (1, 1)),
+                        # ((1, 1), (0, 1)),
+                        # ((0, 1), (0, 0)),
                     ),
                 }
             },
