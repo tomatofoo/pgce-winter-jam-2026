@@ -9,7 +9,9 @@ from numbers import Real
 import pygame as pg
 from pygame.typing import Point
 
-clipline doesn't work with floats
+
+SMALL = 0.00001
+
 def load_img(*args: str, size: Point=None) -> pg.Surface:
     img = pg.image.load(os.path.join('data', 'images', *args))
     if size is not None:
@@ -22,14 +24,16 @@ def gen_tile_key(obj: Point):
 def get_line_x(line: tuple[Point], y: Real) -> Real:
     point0 = pg.Vector2(line[0])
     point1 = pg.Vector2(line[1])
-    t = (y - point0[1]) / (point1[1] - point0[1])
-    return pg.math.lerp(point0[0], point1[0], t)
+    difference = point1[1] - point0[1]
+    t = (y - point0[1]) / difference if difference else 0
+    return pg.math.lerp(point0[0], point1[0], t, 0)
 
 def get_line_y(line: tuple[Point], x: Real) -> Real:
     point0 = pg.Vector2(line[0])
     point1 = pg.Vector2(line[1])
-    t = (x - point0[0]) / (point1[0] - point0[0])
-    return pg.math.lerp(point0[1], point1[1], t)
+    difference = point1[0] - point0[0]
+    t = (x - point0[0]) / difference if difference else 0
+    return pg.math.lerp(point0[1], point1[1], t, 0)
 
 
 class Level(object):
@@ -155,13 +159,12 @@ class Entity(object):
     def velocity(self: Self, value: Point) -> None:
         self._velocity = pg.Vector2(value)
     
-    @property
-    def rect(self: Self) -> pg.FRect:
-        rect = pg.FRect(0, 0, self._width, self._width)
-        rect.center = self._pos
+    def rect(self: Self, scale: Real=1) -> pg.FRect:
+        rect = pg.FRect(0, 0, self._width * scale, self._width * scale)
+        rect.center = self._pos * scale
         return rect
 
-    def _get_lines_around(self: Self) -> list[tuple[Point]]:
+    def _get_lines_around(self: Self, scale: Real=1) -> list[tuple[Point]]:
         lines = []
         for offset in self._TILE_OFFSETS:
             tile = pg.Vector2(
@@ -172,29 +175,45 @@ class Entity(object):
             data = self._level._tilemap.get(tile_key)
             if data is not None:
                 for line in data['lines']:
-                    lines.append((tile + line[0], tile + line[1]))
+                    lines.append(
+                        ((tile + line[0]) * scale, (tile + line[1]) * scale),
+                    )
         return lines
 
     def update(self: Self, rel_game_speed: Real) -> None:
+        scale = 100
+
         self._pos[0] += self._velocity[0] * rel_game_speed
-        entity_rect = self.rect
-        for line in self._get_lines_around():
+        entity_rect = self.rect(scale)
+        for line in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 if self._velocity[0] > 0:
-                    entity_rect.right = rect.left
+                    entity_rect.right = min(
+                        get_line_x(line, entity_rect.top),
+                        get_line_x(line, entity_rect.bottom),
+                    )
                 elif self._velocity[0] < 0:
-                    entity_rect.left = rect.right
-                self._pos[0] = entity_rect.centerx
+                    entity_rect.left = max(
+                        get_line_x(line, entity_rect.top),
+                        get_line_x(line, entity_rect.bottom),
+                    )
+                self._pos[0] = entity_rect.centerx / scale
         
         self._pos[1] += self._velocity[1] * rel_game_speed
-        entity_rect = self.rect
-        for line in self._get_lines_around():
+        entity_rect = self.rect(scale)
+        for line in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 if self._velocity[1] > 0:
-                    entity_rect.bottom = rect.top
+                    entity_rect.bottom = min(
+                        get_line_y(line, entity_rect.left),
+                        get_line_y(line, entity_rect.right),
+                    )
                 elif self._velocity[1] < 0:
-                    entity_rect.top = rect.bottom
-                self._pos[1] = entity_rect.centery
+                    entity_rect.top = max(
+                        get_line_y(line, entity_rect.left),
+                        get_line_y(line, entity_rect.right),
+                    )
+                self._pos[1] = entity_rect.centery / scale
 
 
 class Puck(Entity):
@@ -233,30 +252,48 @@ class Puck(Entity):
         pass
 
     def update(self: Self, rel_game_speed: Real) -> None:
+        scale = 100
+
         self._pos[0] += self._velocity[0] * rel_game_speed
-        entity_rect = self.rect
-        for line in self._get_lines_around():
-            print(line, entity_rect)
+        entity_rect = self.rect(scale)
+        for line in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 if self._velocity[0] > 0:
-                    entity_rect.right = rect.left
+                    entity_rect.right = min(
+                        get_line_x(line, entity_rect.top),
+                        get_line_x(line, entity_rect.bottom),
+                    ) - SMALL * scale
                 elif self._velocity[0] < 0:
-                    entity_rect.left = rect.right
-                self._pos[0] = entity_rect.centerx
-                self._health -= 1
+                    entity_rect.left = max(
+                        get_line_x(line, entity_rect.top),
+                        get_line_x(line, entity_rect.bottom),
+                    ) + SMALL * scale
+                
+                self._pos[0] = entity_rect.centerx / scale
+                self._health = max(self._health - 1, 0)
         
         self._pos[1] += self._velocity[1] * rel_game_speed
-        entity_rect = self.rect
-        for line in self._get_lines_around():
+        entity_rect = self.rect(scale)
+        for line in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 if self._velocity[1] > 0:
-                    entity_rect.bottom = rect.top
+                    entity_rect.bottom = min(
+                        get_line_y(line, entity_rect.left),
+                        get_line_y(line, entity_rect.right),
+                    ) - SMALL * scale
                 elif self._velocity[1] < 0:
-                    entity_rect.top = rect.bottom
-                self._pos[1] = entity_rect.centery
-                self._health -= 1
+                    entity_rect.top = max(
+                        get_line_y(line, entity_rect.left),
+                        get_line_y(line, entity_rect.right), 
+                    ) + SMALL * scale
 
-        self._velocity *= 0.99**rel_game_speed
+                self._pos[1] = entity_rect.centery / scale
+                self._health = max(self._health - 1, 0)
+
+        if self._velocity.magnitude() > SMALL:
+            self._velocity *= 0.9**rel_game_speed
+        else:
+            self._velocity.update(0, 0)
         
         if self._health:
             self._surf = self._surfs[math.floor(
@@ -312,7 +349,7 @@ class Camera(object):
         )
 
     def update(self: Self, rel_game_speed: Real, follow: pg.Vector2) -> None:
-        mult = (1 - (1 - 0.1))**rel_game_speed
+        mult = (1 - (1 - 0.01))**rel_game_speed
         self._pos += (follow - self._pos) * mult
 
     def render(self: Self, surf: pg.Surface) -> None:
@@ -379,7 +416,7 @@ class Game(object):
                         ((0, 0), (1, 0)),
                         ((1, 0), (1, 1)),
                         ((1, 1), (0, 1)),
-                        ((0, 1), (0, 0))
+                        ((0, 1), (0, 0)),
                     ),
                 }
             },
@@ -429,7 +466,7 @@ class Game(object):
                 (0, 255, 0),
                 puck_pos,
                 puck_pos + vector * self._camera.zoom * 2,
-                3,
+                2,
             )
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
             self._screen.blit(resized_surf, (0, 0))
