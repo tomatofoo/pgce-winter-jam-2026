@@ -191,12 +191,12 @@ class Entity(object):
                     entity_rect.right = min(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
-                    )
+                    ) - 1
                 elif self._velocity[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
-                    )
+                    ) + 1
                 self._pos[0] = entity_rect.centerx / scale
         
         self._pos[1] += self._velocity[1] * rel_game_speed
@@ -207,12 +207,12 @@ class Entity(object):
                     entity_rect.bottom = min(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
-                    )
+                    ) - 1
                 elif self._velocity[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
-                    )
+                    ) + 1
                 self._pos[1] = entity_rect.centery / scale
 
 
@@ -272,21 +272,21 @@ class Puck(Entity):
             if entity_rect.clipline(line):
                 # The +1 is scaled down by scale (100)
                 # It accounts for inaccuracies
+                # Also btw collisions mgiht be messed up
                 # Yes I know it isn't pretty but its a game jam
                 if initial[0] > 0:
                     entity_rect.right = min(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
-                    )
+                    ) - 1
                 elif initial[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
-                    )
+                    ) + 1
 
                 # angle would be same so don't need to scale down line
                 self._bounce(line, initial.angle)
-            
                 self._pos[0] = entity_rect.centerx / scale
                 self._health = max(self._health - 1, 0)
         
@@ -298,20 +298,19 @@ class Puck(Entity):
                     entity_rect.bottom = min(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
-                    )
+                    ) - 1
                 elif initial[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right), 
-                    )
+                    ) + 1
 
                 self._bounce(line, initial.angle)
-                
                 self._pos[1] = entity_rect.centery / scale
                 self._health = max(self._health - 1, 0)
 
         if self._velocity.magnitude() > SMALL:
-            self._velocity *= 0.9**rel_game_speed
+            self._velocity *= 0.99**rel_game_speed
         else:
             self._velocity.update(0, 0)
         
@@ -380,8 +379,8 @@ class Camera(object):
         width = int(surf.width / self._zoom)
         height = int(surf.height / self._zoom)
 
-        for y in range(height):
-            for x in range(width):
+        for y in range(height + 1):
+            for x in range(width + 1):
                 tile = origin + (x, y)
                 tile_key = gen_tile_key(tile)
                 data = self._level._tilemap.get(tile_key)
@@ -393,16 +392,6 @@ class Camera(object):
                     
                     surf.blit(texture, self.gen_screen_pos(tile, surf.size))
                     
-                    # TEMP
-                    pos = self.gen_screen_pos(tile, surf.size)
-                    for line in data['lines']:
-                        pg.draw.line(
-                            surf,
-                            (255, 0, 0),
-                            pos + (line[0][0] * self._zoom, line[0][1] * self._zoom),
-                            pos + (line[1][0] * self._zoom, line[1][1] * self._zoom),
-                        )
-
         for entity in self._level._entities:
             texture = pg.transform.scale(
                 entity._surf, [entity._width * self._zoom] * 2,
