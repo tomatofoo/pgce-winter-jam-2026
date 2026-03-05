@@ -99,12 +99,14 @@ class Entity(object):
                  surf: pg.Surface,
                  pos: Point=(0, 0),
                  width: Real=1,
+                 render_width: Optional[Real]=None,
                  health: int=100):
         
         self._level = None
         self._surf = surf
         self._pos = pg.Vector2(pos)
         self._width = width
+        self.render_width = render_width
         self._velocity = pg.Vector2(0, 0)
 
     @property
@@ -146,6 +148,16 @@ class Entity(object):
     @width.setter
     def width(self: Self, value: Real) -> None:
         self._width = value
+
+    @property
+    def render_width(self: Self) -> Real:
+        return self._render_width
+
+    @render_width.setter
+    def render_width(self: Self, value: Optional[Real]) -> None:
+        if value is None:
+            value = self._width
+        self._render_width = value
 
     @property
     def velocity(self: Self) -> pg.Vector2:
@@ -229,12 +241,14 @@ class Puck(Entity):
                  surfs: tuple[pg.Surface],
                  pos: Point=(0, 0),
                  width: Real=1,
+                 render_width: Optional[Real]=None,
                  health: int=50):
 
         super().__init__(
             surf=surfs[0],
             pos=pos,
             width=width,
+            render_width=render_width,
         )
         self._surfs = surfs
         self._health = health
@@ -380,6 +394,30 @@ class Camera(object):
         self._pos += (follow - self._pos) * mult
 
     def render(self: Self, surf: pg.Surface) -> None:
+        surf.fill((0, 0, 0))
+        data = self._level._tilemap['bg']
+        if data['texture'] != -1:
+            scale = data['scale']
+            size = scale * self._zoom
+            origin = pg.Vector2(
+                (self._pos[0] - surf.width / 2 / self._zoom) // scale * scale,
+                (self._pos[1] - surf.height / 2 / self._zoom) // scale * scale,
+            )
+            width = int(surf.width / size)
+            height = int(surf.height / size)
+            for y in range(height + 2):
+                for x in range(width + 2):
+                    surf.blit(
+                        pg.transform.scale(
+                            self._level._textures[data['texture']],
+                            (size, size),
+                        ),
+                        self.gen_screen_pos(
+                            origin + (x * scale, y * scale),
+                            surf.size,
+                        ),
+                    )
+
         origin = pg.Vector2(
             math.floor(self._pos[0] - surf.width / 2 / self._zoom),
             math.floor(self._pos[1] - surf.height / 2 / self._zoom),
@@ -402,10 +440,10 @@ class Camera(object):
                     
         for entity in self._level._entities:
             texture = pg.transform.scale(
-                entity._surf, [entity._width * self._zoom] * 2,
+                entity._surf, [entity._render_width * self._zoom] * 2,
             )
             pos = self.gen_screen_pos(
-                entity._pos - [entity._width / 2] * 2, surf.size,
+                entity._pos - [entity._render_width / 2] * 2, surf.size,
             )
             surf.blit(texture, pos)
 
@@ -434,7 +472,7 @@ class Game(object):
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
         
-        self._puck = Puck((load_img('player.png'),),)
+        self._puck = Puck((load_img('player.png'),), width=0.9, render_width=1)
         self._level = Level(
             entities={self._puck},
             tilemap=load_tilemap(0),

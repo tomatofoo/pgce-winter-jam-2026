@@ -53,10 +53,10 @@ class Game(object):
         self._change_title()
 
         self._tilemap = {
-            #'bg': {
-            #    'texture': 0,
-            #    'scale': 4,
-            #},
+            'bg': {
+                'texture': -1,
+                'scale': 4,
+            },
         }
         self._textures = [
             load_img('background.png'),
@@ -138,7 +138,7 @@ class Game(object):
     def _draw_tile(self: Self,
                    pos: pg.Vector2,
                    data: Optional[dict],
-                   alpha: Optional[int]=None,
+                   alpha: Optional[int]=255,
                    size: Optional[int]=None) -> None:
         if data is not None:
             if size is None:
@@ -168,8 +168,8 @@ class Game(object):
 
     def _draw_background(self: Self) -> None:
         self._screen.fill((0, 0, 0))
-        data = self._tilemap.get('bg')
-        if data is not None:
+        data = self._tilemap['bg']
+        if data['texture'] != -1:
             scale = data['scale']
             size = scale * self._zoom
             origin = pg.Vector2(
@@ -254,8 +254,8 @@ class Game(object):
                             self._tilemap['bg'] if event.mod & pg.KMOD_SHIFT
                             else self._data
                         )
-                        self._data['texture'] = (
-                            (self._data['texture'] + 1) % len(self._textures)
+                        dictionary['texture'] = (
+                            (dictionary['texture'] + 1) % len(self._textures)
                         )
                     elif event.key == pg.K_LEFTBRACKET:
                         if event.mod & pg.KMOD_SHIFT:
