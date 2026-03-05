@@ -4,6 +4,7 @@ import math
 import copy
 import json
 from typing import Self
+from typing import Optional
 from numbers import Real
 
 import pygame as pg
@@ -19,7 +20,7 @@ def load_img(*args: str, size: Point=None) -> pg.Surface:
 def gen_tile_key(obj: Point):
     return f'{int(math.floor(obj[0]))};{int(math.floor(obj[1]))}'
 
-
+# Sloppy code because game jam
 class Game(object):
 
     _SCREEN_SIZE = (640, 480)
@@ -37,24 +38,71 @@ class Game(object):
             flags=self._SCREEN_FLAGS,
             vsync=self._settings['vsync']
         )
-        pg.display.set_caption('Icebox Editor')
         self._running = 0
 
         pg.key.set_repeat(300, 75)
+        self._font = pg.font.SysFont('Arial', 16)
         
         self._tool = 'place' # place, remove, eyedropper
         self._pos = pg.Vector2(0, 0)
         self._zoom = 16
-        
-        self._textures = [
-            load_img('obstacle.png'),
-        ]
-        self._tilemap = {}
-        self._data = {
-            'texture': 0,
-            'lines': [
-            ],
+        self._lines_dex = 0
+
+        self._number = 0
+        self._unsaved = 0
+        self._change_title()
+
+        self._tilemap = {
+            #'bg': {
+            #    'texture': 0,
+            #    'scale': 4,
+            #},
         }
+        self._textures = [
+            load_img('background.png'),
+            load_img('obstacles', 'square.png'),
+            load_img('obstacles', 'triangle1.png'),
+            load_img('obstacles', 'triangle2.png'),
+            load_img('obstacles', 'triangle3.png'),
+            load_img('obstacles', 'triangle4.png'),
+        ]
+        self._lines = [
+            (((0, 0), (1, 0)), # SQUARE
+             ((1, 0), (1, 1)),
+             ((1, 1), (0, 1)),
+             ((0, 1), (0, 0))),
+            (((0, 0), (0, 1)), # TRIANGLE1
+             ((0, 1), (1, 1)),
+             ((1, 1), (0, 0))),
+            (((0, 1), (1, 1)), # TRIANGLE2
+             ((1, 1), (1, 0)),
+             ((1, 0), (0, 1))),
+            (((1, 1), (1, 0)), # TRIANGLE3
+             ((1, 0), (0, 0)),
+             ((0, 0), (1, 1))),
+            (((1, 0), (0, 0)), # TRIANGLE4
+             ((0, 0), (0, 1)),
+             ((0, 1), (1, 0))),
+        ]
+        self._data = {
+            'texture': 1,
+            'lines': self._lines[self._lines_dex],
+            'end': False,
+        }
+
+    def _change_title(self: Self) -> None:
+        pg.display.set_caption('Icebox Editor' + '*' * self._unsaved)
+
+    def _save(self: Self, path: str) -> None:
+        with open(os.path.join('data', 'maps', path), 'w') as file:
+            json.dump(self._tilemap, file)
+
+    def _load(self: Self, path: str) -> None:
+        try:
+            with open(os.path.join('data', 'maps', path), 'r') as file:
+                self._tilemap = json.load(file)
+        except FileNotFoundError:
+            pass
 
     def _gen_map_pos(self: Self, screen_pos: Point) -> pg.Vector2:
         return (
@@ -83,9 +131,63 @@ class Game(object):
                 tile = origin + (x, y)
                 pg.draw.rect(
                     self._screen,
-                    (255, 255, 255),
+                    (0, 255, 255),
                     (self._gen_screen_pos(tile), (2, 2)),
                 )
+
+    def _draw_tile(self: Self,
+                   pos: pg.Vector2,
+                   data: Optional[dict],
+                   alpha: Optional[int]=None,
+                   size: Optional[int]=None) -> None:
+        if data is not None:
+            if size is None:
+                size = self._zoom
+            surf = pg.transform.scale(
+                self._textures[data['texture']], (size, size),
+            )
+            if data['end']:
+                pg.draw.rect(
+                    surf,
+                    (0, 255, 0),
+                    (0, 0, size / 2, size / 2),
+                    3,
+                )
+            surf.set_alpha(alpha)
+            self._screen.blit(surf, pos)
+            # Drawn after because it might not appear on surf
+            # alpha value is ignored for lines
+            for line in data['lines']:
+                pg.draw.line(
+                    self._screen,
+                    (255, 0, 255),
+                    pos + (line[0][0] * size, line[0][1] * size),
+                    pos + (line[1][0] * size, line[1][1] * size),
+                    2,
+                )
+
+    def _draw_background(self: Self) -> None:
+        self._screen.fill((0, 0, 0))
+        data = self._tilemap.get('bg')
+        if data is not None:
+            scale = data['scale']
+            size = scale * self._zoom
+            origin = pg.Vector2(
+                (self._pos[0] - self._SCREEN_SIZE[0] / 2 / self._zoom)
+                // scale * scale,
+                (self._pos[1] - self._SCREEN_SIZE[1] / 2 / self._zoom)
+                // scale * scale,
+            )
+            width = int(self._SCREEN_SIZE[0] / size)
+            height = int(self._SCREEN_SIZE[1] / size)
+            for y in range(height + 2):
+                for x in range(width + 2):
+                    self._screen.blit(
+                        pg.transform.scale(
+                            self._textures[data['texture']], (size, size),
+                        ),
+                        self._gen_screen_pos(origin + (x * scale, y * scale)),
+                    )
 
     def _draw_tiles(self: Self) -> None:
         origin = pg.Vector2(
@@ -98,36 +200,16 @@ class Game(object):
         for y in range(height + 2):
             for x in range(width + 2):
                 tile = origin + (x, y)
-                tile_key = gen_tile_key(tile)
-                data = self._tilemap.get(tile_key)
-                if data is not None:
-                    texture = pg.transform.scale(
-                        self._textures[data['texture']],
-                        (self._zoom, self._zoom),
-                    )
-                    
-                    self._screen.blit(texture, self._gen_screen_pos(tile))
-                    
-                    pos = self._gen_screen_pos(tile)
-                    for line in data['lines']:
-                        pg.draw.line(
-                            self._screen,
-                            (0, 0, 255),
-                            pos + (line[0][0] * self._zoom, line[0][1] * self._zoom),
-                            pos + (line[1][0] * self._zoom, line[1][1] * self._zoom),
-                        )
+                key = gen_tile_key(tile)
+                data = self._tilemap.get(key)
+                self._draw_tile(self._gen_screen_pos(tile), data)
 
     def _draw_tool(self: Self, tile: Point) -> None:
-        screen_pos = self._gen_screen_pos(tile)
+        pos = self._gen_screen_pos(tile)
         if self._tool == 'place':
-            surf = pg.transform.scale(
-                self._textures[self._data['texture']],
-                (self._zoom, self._zoom),
-            )
-            surf.set_alpha(128)
-            self._screen.blit(surf, screen_pos)
+            self._draw_tile(pos, self._data, 128)
             return None
-        rect = (screen_pos, (self._zoom, self._zoom))
+        rect = (pos, (self._zoom, self._zoom))
         if self._tool == 'remove':
             pg.draw.rect(self._screen, (255, 0, 0), rect, 1) 
         elif self._tool == 'eyedropper':
@@ -149,6 +231,7 @@ class Game(object):
             mouse_pos = pg.mouse.get_pos()
             tile = self._gen_map_pos(mouse_pos)
             tile = pg.Vector2(math.floor(tile[0]), math.floor(tile[1]))
+            key = gen_tile_key(tile)
 
             for event in pg.event.get():
                 if event.type == pg.QUIT:
@@ -158,55 +241,108 @@ class Game(object):
                         self._zoom += 8
                     elif event.key == pg.K_x:
                         self._zoom = max(self._zoom - 4, 8)
-                    elif event.key == pg.K_h:
-                        self._data['texture'] = (
-                            (self._data['texture'] - 1)
-                            % len(self._textures)
+                    elif event.key == pg.K_MINUS:
+                        dictionary = (
+                            self._tilemap['bg'] if event.mod & pg.KMOD_SHIFT
+                            else self._data
                         )
-                    elif event.key == pg.K_l:
-                        self._data['texture'] = (
-                            (self._data['texture'] + 1)
-                            % len(self._textures)
+                        dictionary['texture'] = (
+                            (dictionary['texture'] - 1) % len(self._textures)
                         )
+                    elif event.key == pg.K_EQUALS:
+                        dictionary = (
+                            self._tilemap['bg'] if event.mod & pg.KMOD_SHIFT
+                            else self._data
+                        )
+                        self._data['texture'] = (
+                            (self._data['texture'] + 1) % len(self._textures)
+                        )
+                    elif event.key == pg.K_LEFTBRACKET:
+                        if event.mod & pg.KMOD_SHIFT:
+                            scale = self._tilemap['bg']['scale']
+                            self._tilemap['bg']['scale'] = max(scale - 1, 1)
+                        else:
+                            self._lines_dex = (
+                                (self._lines_dex - 1) % len(self._lines)
+                            )
+                            self._data['lines'] = self._lines[self._lines_dex]
+                    elif event.key == pg.K_RIGHTBRACKET:
+                        if event.mod & pg.KMOD_SHIFT:
+                            self._tilemap['bg']['scale'] += 1
+                        else:
+                            self._lines_dex = (
+                                (self._lines_dex + 1) % len(self._lines)
+                            )
+                            self._data['lines'] = self._lines[self._lines_dex]
+                    elif event.key == pg.K_0:
+                        self._data['end'] = not self._data['end']
                     elif event.key == pg.K_b:
                         self._tool = 'place'
                     elif event.key == pg.K_e:
                         self._tool = 'remove'
                     elif event.key == pg.K_i:
                         self._tool = 'eyedropper'
-            
+                    elif event.mod & pg.KMOD_CTRL:
+                        if event.key == pg.K_COMMA:
+                            self._number = max(self._number - 1, 0)
+                        elif event.key == pg.K_PERIOD:
+                            self._number += 1
+                        elif event.key == pg.K_s:
+                            self._save(f'{self._number}.json')
+                            self._unsaved = 0
+                        elif event.key == pg.K_l:
+                            self._load(f'{self._number}.json')
+
             # Update
             movement = (
                 keys[pg.K_d] - keys[pg.K_a],
                 keys[pg.K_s] - keys[pg.K_w],
             )
-            speed = 8 if keys[pg.K_LSHIFT] else 4
+            speed = (
+                (8 if keys[pg.K_LSHIFT] else 4)
+                * (not keys[pg.K_LCTRL] and not keys[pg.K_RCTRL])
+            )
             self._pos += (
                 movement[0] / self._zoom * speed * rel_game_speed,
                 movement[1] / self._zoom * speed * rel_game_speed,
             )
             if mouse[0]:
-                key = gen_tile_key(tile)
                 if self._tool == 'place':
                     self._tilemap[key] = copy.deepcopy(self._data)
+                    self._unsaved = 1
                 elif self._tool == 'remove':
                     try:
                         self._tilemap.pop(key)
+                        self._unsaved = 1
                     except KeyError:
                         pass
                 elif self._tool == 'eyedropper':
-                    data = self._tilemap.get(key)
-                    self._data = copy.deepcopy(data)
+                    try:
+                        self._data = copy.deepcopy(self._tilemap[key])
+                    except KeyError:
+                        pass
             
             # Render
-            self._screen.fill((0, 0, 0))
+            self._change_title()
+            self._draw_background()
             self._draw_grid()
             self._draw_tiles()
             self._draw_tool(tile)
-            surf = pg.transform.scale(
-                self._textures[self._data['texture']], (32, 32),
+
+            ## Info
+            self._draw_tile(pg.Vector2(0, 0), self._data, size=32)
+
+            text = self._font.render(
+                f'number: {self._number}\n'
+                '\n'
+                f'key: {key}\n'
+                f'texture: {self._data['texture']}\n'
+                f'lines:\n{'\n'.join(str(item) for item in self._data['lines'])}\n'
+                f'end: {self._data['end']}\n',
+                1,
+                (0, 255, 0),
             )
-            self._screen.blit(surf, (0, 0))
+            self._screen.blit(text, (5, 32))
 
             pg.display.update()
 

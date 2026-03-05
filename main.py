@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import time
 import math
+import json
 from typing import Self
 from numbers import Real
 
@@ -17,6 +18,13 @@ def load_img(*args: str, size: Point=None) -> pg.Surface:
     if size is not None:
         img = pg.transform.scale(img, size)
     return img
+
+def load_tilemap(number: int) -> dict:
+    try:
+        with open(os.path.join('data', 'maps', f'{number}.json'), 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
 
 def gen_tile_key(obj: Point):
     return f'{int(math.floor(obj[0]))};{int(math.floor(obj[1]))}'
@@ -429,22 +437,14 @@ class Game(object):
         self._puck = Puck((load_img('player.png'),),)
         self._level = Level(
             entities={self._puck},
-            tilemap={
-                '0;0': {
-                    'texture': 0,
-                    'lines': (
-                        ((0, 0), (1, 1)),
-                        ((0, 0), (0, 1)),
-                        ((0, 1), (1, 1)),
-                        # ((0, 0), (1, 0)),
-                        # ((1, 0), (1, 1)),
-                        # ((1, 1), (0, 1)),
-                        # ((0, 1), (0, 0)),
-                    ),
-                }
-            },
+            tilemap=load_tilemap(0),
             textures=(
-                load_img('obstacle.png'),
+                load_img('background.png'),
+                load_img('obstacles', 'square.png'),
+                load_img('obstacles', 'triangle1.png'),
+                load_img('obstacles', 'triangle2.png'),
+                load_img('obstacles', 'triangle3.png'),
+                load_img('obstacles', 'triangle4.png'),
             ),
         )
         self._camera = Camera(self._level, (0, 0))
