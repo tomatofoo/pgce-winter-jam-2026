@@ -9,7 +9,7 @@ from typing import Self
 from numbers import Real
 
 import pygame as pg
-import pygame.gfxdraw
+from pygame import mixer as mx
 from pygame.typing import Point
 from pygame.typing import ColorLike
 
@@ -269,6 +269,10 @@ class Entity(object):
     @speed.setter
     def speed(self: Self, value: Real) -> None:
         self._velocity.scale_to_length(value)
+
+    @property
+    def dead(self: Self) -> bool:
+        return self._health <= 0
     
     def rect(self: Self, scale: Real=1) -> pg.FRect:
         rect = pg.FRect(0, 0, self._width * scale, self._width * scale)
@@ -333,7 +337,10 @@ class Puck(Entity):
                  pos: Point=(0, 0),
                  width: Real=1,
                  render_width: Optional[Real]=None,
-                 health: int=50):
+                 health: int=50,
+                 bounce_sound: Optional[mx.Sound]=None,
+                 crack_sound: Optional[mx.Sound]=None,
+                 die_sound: Optional[mx.Sound]=None):
 
         super().__init__(
             surf=surfs[0],
@@ -342,8 +349,15 @@ class Puck(Entity):
             render_width=render_width,
         )
         self._surfs = surfs
+        self._surf_dex = 0
         self._health = health
         self._max_health = health
+
+        self._sounds = {
+            'bounce': bounce_sound,
+            'crack': crack_sound,
+            'die': die_sound,
+        }
 
     @property
     def surfs(self: Self) -> tuple[pg.Surface]:
@@ -354,12 +368,28 @@ class Puck(Entity):
         self._surfs = value
 
     @property
-    def health(self: Self) -> int:
-        return self._health
+    def bounce_sound(self: Self) -> Optional[mx.Sound]:
+        return self._sounds['bounce']
 
-    @health.setter
-    def health(self: Self, value: int) -> None:
-        self._health = value
+    @bounce_sound.setter
+    def bounce_sound(self: Self, value: Optional[mx.Sound]) -> None:
+        self._sounds['bounce'] = value
+
+    @property
+    def crack_sound(self: Self) -> Optional[mx.Sound]:
+        return self._sounds['crack']
+
+    @crack_sound.setter
+    def crack_sound(self: Self, value: Optional[mx.Sound]) -> None:
+        self._sounds['crack'] = value
+
+    @property
+    def die_sound(self: Self) -> Optional[mx.Sound]:
+        return self._sounds['die']
+
+    @die_sound.setter
+    def die_sound(self: Self, value: Optional[mx.Sound]) -> None:
+        self._sounds['die'] = value
 
     def _bounce(self: Self,
                 line: tuple[Point],
@@ -378,6 +408,7 @@ class Puck(Entity):
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
         initial = self._velocity.copy()
+        bounced = 0
 
         self._pos[0] += initial[0] * rel_game_speed
         entity_rect = self.rect(scale)
@@ -392,11 +423,13 @@ class Puck(Entity):
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) - 1
+                    bounced = 1
                 elif initial[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) + 1
+                    bounced = 1
 
                 # angle would be same so don't need to scale down line
                 self._bounce(line, initial.angle)
@@ -412,11 +445,13 @@ class Puck(Entity):
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
                     ) - 1
+                    bounced = 1
                 elif initial[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right), 
                     ) + 1
+                    bounced = 1
 
                 self._bounce(line, initial.angle)
                 self._pos[1] = entity_rect.centery / scale
@@ -427,10 +462,26 @@ class Puck(Entity):
         else:
             self._velocity.update(0, 0)
         
-        if self._health:
-            self._surf = self._surfs[math.floor(
+        if self.dead:
+            sound = self._sounds['die']
+            if self._surf_dex < len(self._surfs) and sound is not None:
+                sound.play()
+                self._surf_dex = len(self._surfs)
+        else:
+            surf_dex = int(math.floor(
                 (1 - (self._health / self._max_health)) * len(self._surfs)
-            )]
+            ))
+            if surf_dex != self._surf_dex:
+                sound = self._sounds['crack']
+                if sound is not None:
+                    suond.play()
+                    self._surf_dex = surf_dex
+            self._surf = self._surfs[self._surf_dex]
+
+        # Sounds
+        sound = self._sounds['bounce']
+        if bounced and sound is not None:
+            sound.play()
 
 
 class Camera(object):
@@ -680,15 +731,13 @@ class Game(object):
                     end_pos + (0, 2),
                     2,
                 )
-                pg.draw.line( # Mouse Vector
+                pg.draw.line( # Actual Line
                     self._surface,
                     (0, 255, 0),
                     start_pos,
                     end_pos,
                     2,
                 )
-
-            pg.display.set_caption(str(1 / delta_time) if delta_time else 'inf')
 
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
             self._screen.blit(resized_surf, (0, 0))
