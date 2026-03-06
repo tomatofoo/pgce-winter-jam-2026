@@ -22,6 +22,14 @@ def load_img(*args: str, size: Point=None) -> pg.Surface:
         img = pg.transform.scale(img, size)
     return img
 
+def load_sfx(*args: str) -> mx.Sound:
+    sfx = mx.Sound(os.path.join('data', 'sounds', 'sfx', *args))
+    return sfx
+
+def load_mus(*args: str) -> mx.Sound:
+    mus = mx.Sound(os.path.join('data', 'sounds', 'music', *args))
+    return mus
+
 def load_tilemap(number: int) -> dict:
     try:
         with open(os.path.join('data', 'maps', f'{number}.json'), 'r') as file:
@@ -337,7 +345,7 @@ class Puck(Entity):
                  pos: Point=(0, 0),
                  width: Real=1,
                  render_width: Optional[Real]=None,
-                 health: int=50,
+                 health: int=100,
                  bounce_sound: Optional[mx.Sound]=None,
                  crack_sound: Optional[mx.Sound]=None,
                  die_sound: Optional[mx.Sound]=None):
@@ -474,13 +482,14 @@ class Puck(Entity):
             if surf_dex != self._surf_dex:
                 sound = self._sounds['crack']
                 if sound is not None:
-                    suond.play()
-                    self._surf_dex = surf_dex
+                    sound.play()
+                self._surf_dex = surf_dex
             self._surf = self._surfs[self._surf_dex]
 
         # Sounds
         sound = self._sounds['bounce']
         if bounced and sound is not None:
+            sound.set_volume(self._velocity.magnitude() * 0.8)
             sound.play()
 
 
@@ -663,13 +672,37 @@ class Game(object):
         pg.display.set_caption('Icebox')
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
+
+
+        self._images = {
+            'puck': (
+                load_img('puck', '1.png'),
+                load_img('puck', '2.png'),
+                load_img('puck', '3.png'),
+                load_img('puck', '4.png'),
+                load_img('puck', '5.png'),
+                load_img('puck', '6.png'),
+                load_img('puck', '7.png'),
+                load_img('puck', '8.png'),
+            ),
+        }
+
+        self._sounds = {
+            'bounce': load_sfx('bounce.mp3'),
+            'launch': load_sfx('launch.mp3'),
+        }
         
-        self._puck = Puck((load_img('puck.png'),), width=0.9, render_width=1)
+        self._puck = Puck(
+            surfs=self._images['puck'],
+            width=0.9,
+            render_width=1,
+            bounce_sound=self._sounds['bounce'],
+        )
         self._level = Level(
             entities={self._puck},
             tilemap=load_tilemap(0),
             textures=(
-                load_img('backgrounds', 'level1.png'),
+                load_img('backgrounds', '1.png'),
                 load_img('obstacles', 'square.png'),
                 load_img('obstacles', 'triangle1.png'),
                 load_img('obstacles', 'triangle2.png'),
@@ -712,6 +745,9 @@ class Game(object):
                     self._puck.velocity = (
                         vector * 0.1 if vector else pg.Vector2(0, 0)
                     )
+                    sound = self._sounds['launch']
+                    sound.set_volume(vector.magnitude())
+                    sound.play()
 
             self._level.update(rel_game_speed)
             self._camera.update(rel_game_speed, self._puck.pos)
