@@ -14,7 +14,7 @@ from pygame.typing import Point
 from pygame.typing import ColorLike
 
 
-SMALL = 0.001
+SMALL = 0.01
 
 def load_img(*args: str, size: Point=None) -> pg.Surface:
     img = pg.image.load(os.path.join('data', 'images', *args))
@@ -675,6 +675,10 @@ class Game(object):
 
 
         self._images = {
+            'launch': {
+                'can': load_img('launch', 'can.png'),
+                'cant': load_img('launch', 'cant.png'),
+            },
             'puck': (
                 load_img('puck', '1.png'),
                 load_img('puck', '2.png'),
@@ -735,13 +739,13 @@ class Game(object):
             )
             if vector.magnitude() > 5:
                 vector.scale_to_length(5)
+            can_launch = self._puck.speed < SMALL
             
             # Events
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self._running = 0
-                elif (event.type == pg.MOUSEBUTTONUP
-                      and self._puck.speed < SMALL):
+                elif event.type == pg.MOUSEBUTTONUP and can_launch:
                     self._puck.velocity = (
                         vector * 0.1 if vector else pg.Vector2(0, 0)
                     )
@@ -756,6 +760,7 @@ class Game(object):
             self._surface.fill((0, 0, 0))
             self._camera.render(self._surface)
             if mouse[0] and self._puck.speed < SMALL:
+                size = int(self._camera.zoom / 8)
                 start_pos = self._camera.gen_screen_pos(
                     self._puck.pos, self._surface.size,
                 )
@@ -763,16 +768,32 @@ class Game(object):
                 pg.draw.line( # Shadow
                     self._surface,
                     (0, 96, 0),
-                    start_pos + (0, 2),
-                    end_pos + (0, 2),
-                    2,
+                    start_pos + (0, size),
+                    end_pos + (0, size),
+                    size,
                 )
                 pg.draw.line( # Actual Line
                     self._surface,
                     (0, 255, 0),
                     start_pos,
                     end_pos,
-                    2,
+                    size,
+                )
+            if can_launch:
+                self._surface.blit(
+                    pg.transform.scale(
+                        self._images['launch']['can'],
+                        (self._camera.zoom, self._camera.zoom),
+                    ),
+                    (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
+                )
+            else:
+                self._surface.blit(
+                    pg.transform.scale(
+                        self._images['launch']['cant'],
+                        (self._camera.zoom, self._camera.zoom),
+                    ),
+                    (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
                 )
 
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
