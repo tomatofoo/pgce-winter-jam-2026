@@ -47,6 +47,7 @@ class Game(object):
         self._pos = pg.Vector2(0, 0)
         self._zoom = 16
         self._lines_dex = 0
+        self._type_dex = 0
 
         self._number = 0
         self._unsaved = 0
@@ -59,7 +60,7 @@ class Game(object):
             },
         }
         self._textures = [
-            load_img('background.png'),
+            load_img('backgrounds', 'level1.png'),
             load_img('obstacles', 'square.png'),
             load_img('obstacles', 'triangle1.png'),
             load_img('obstacles', 'triangle2.png'),
@@ -84,10 +85,15 @@ class Game(object):
              ((0, 0), (0, 1)),
              ((0, 1), (1, 0))),
         ]
+        self._types = [
+            'normal',
+            'end',
+            'boost',
+        ]
         self._data = {
             'texture': 1,
             'lines': self._lines[self._lines_dex],
-            'end': False,
+            'type': 'normal',
         }
 
     def _change_title(self: Self) -> None:
@@ -146,13 +152,22 @@ class Game(object):
             surf = pg.transform.scale(
                 self._textures[data['texture']], (size, size),
             )
-            if data['end']:
+            tile_type = data['type']
+            if tile_type == 'end':
                 pg.draw.rect(
                     surf,
                     (0, 255, 0),
                     (0, 0, size / 2, size / 2),
                     3,
                 )
+            elif tile_type == 'boostleft':
+                pass
+            elif tile_type == 'boostright':
+                pass
+            elif tile_type == 'boostup':
+                pass
+            elif tile_type == 'boostdown':
+                pass
             surf.set_alpha(alpha)
             self._screen.blit(surf, pos)
             # Drawn after because it might not appear on surf
@@ -246,6 +261,8 @@ class Game(object):
                             self._tilemap['bg'] if event.mod & pg.KMOD_SHIFT
                             else self._data
                         )
+                        if dictionary is not self._data: # yes i know is sloppy
+                            self._unsaved = 1
                         dictionary['texture'] = (
                             (dictionary['texture'] - 1) % len(self._textures)
                         )
@@ -254,6 +271,8 @@ class Game(object):
                             self._tilemap['bg'] if event.mod & pg.KMOD_SHIFT
                             else self._data
                         )
+                        if dictionary is not self._data:
+                            self._unsaved = 1
                         dictionary['texture'] = (
                             (dictionary['texture'] + 1) % len(self._textures)
                         )
@@ -261,6 +280,7 @@ class Game(object):
                         if event.mod & pg.KMOD_SHIFT:
                             scale = self._tilemap['bg']['scale']
                             self._tilemap['bg']['scale'] = max(scale - 1, 1)
+                            self._unsaved = 1
                         else:
                             self._lines_dex = (
                                 (self._lines_dex - 1) % len(self._lines)
@@ -269,13 +289,16 @@ class Game(object):
                     elif event.key == pg.K_RIGHTBRACKET:
                         if event.mod & pg.KMOD_SHIFT:
                             self._tilemap['bg']['scale'] += 1
+                            self._unsaved = 1
                         else:
                             self._lines_dex = (
                                 (self._lines_dex + 1) % len(self._lines)
                             )
                             self._data['lines'] = self._lines[self._lines_dex]
+                    elif event.key == pg.K_9:
+                        self._type_dex = (self._type_dex - 1) % len(self._types)
                     elif event.key == pg.K_0:
-                        self._data['end'] = not self._data['end']
+                        self._type_dex = (self._type_dex + 1) % len(self._types)
                     elif event.key == pg.K_b:
                         self._tool = 'place'
                     elif event.key == pg.K_e:
@@ -338,7 +361,7 @@ class Game(object):
                 f'key: {key}\n'
                 f'texture: {self._data['texture']}\n'
                 f'lines:\n{'\n'.join(str(item) for item in self._data['lines'])}\n'
-                f'end: {self._data['end']}\n',
+                f'type: {self._data['type']}\n',
                 1,
                 (0, 255, 0),
             )

@@ -4,14 +4,16 @@ import os
 import time
 import math
 import json
+import random
 from typing import Self
 from numbers import Real
 
 import pygame as pg
 from pygame.typing import Point
+from pygame.typing import ColorLike
 
 
-SMALL = 0.00001
+SMALL = 0.001
 
 def load_img(*args: str, size: Point=None) -> pg.Surface:
     img = pg.image.load(os.path.join('data', 'images', *args))
@@ -44,13 +46,69 @@ def get_line_y(line: tuple[Point], x: Real) -> Real:
     return pg.math.lerp(point0[1], point1[1], t)
 
 
+class Particle(object):
+    def __init__(self: Self,
+                 color: ColorLike, # color cannot be 000000 (colorkey)
+                 radius: Real=0.5,
+                 lifetime: Real=60,
+                 pos: pg.Vector2=pg.Vector2(0, 0),
+                 velocity: pg.Vector2=pg.Vector2(1, 1)) -> None:
+
+        self._color = pg.Color(color)
+        self._alpha = 255
+        self._radius = radius
+        self._pos = pg.Vector2(pos)
+        self._velocity = pg.Vector2(velocity)
+        self._lifetime = lifetime
+        self._timer = lifetime
+
+    @property
+    def color(self: Self) -> pg.Color:
+        return self._color
+
+    @color.setter
+    def color(self: Self, value: ColorLike) -> None:
+        self._color = pg.Color(value)
+
+    @property
+    def alpha(self: Self) -> Real:
+        return self._alpha
+
+    @property
+    def radius(self: Self) -> pg.Color:
+        return self._color
+
+    @color.setter
+    def radius(self: Self, value: ColorLike) -> None:
+        self._color = pg.Color(value)
+
+    @property
+    def velocity(self: Self) -> pg.Vector2:
+        return self.velocity.copy()
+
+    @velocity.setter
+    def velocity(self: Self, value: pg.Vector2) -> None:
+        self._velocity = pg.Vector2(value)
+
+    @property
+    def dead(self: Self) -> bool:
+        return self._timer <= 0
+
+    def update(self: Self, rel_game_speed: Real) -> None:
+        self._alpha = pg.math.lerp(0, 255, self._timer / self._lifetime)
+        self._timer -= rel_game_speed
+        self._velocity *= 0.999**rel_game_speed
+        self._pos += self._velocity
+        
+
 class Level(object):
     def __init__(self: Self,
                  entities: set[Entity],
                  tilemap: dict,
                  textures: tuple[pg.Surface]):
-        self._entities = {}
+        self._entities = set()
         self.entities = entities
+        self._particles = set()
         self._tilemap = tilemap
         self._textures = textures
 
@@ -82,9 +140,37 @@ class Level(object):
     def textures(self: Self, value: tuple[pg.Surface]) -> None:
         self._textures = value
 
+    @property
+    def particles(self: Self) -> set[Particle]:
+        return self._particles
+
+    def spawn_particle(self: Self,
+                       color: ColorLike,
+                       radius: Real=0.5,
+                       lifetime: Real=60,
+                       pos: pg.Vector2=pg.Vector2(0, 0),
+                       velocity: pg.Vector2=pg.Vector2(1, 1)) -> None:
+        self._particles.add(Particle(
+            color=color,
+            radius=radius,
+            lifetime=lifetime,
+            pos=pos,
+            velocity=velocity,
+        ))
+
     def update(self: Self, rel_game_speed: Real) -> None:
+        # Entities
         for entity in self._entities:
             entity.update(rel_game_speed)
+        
+        # Particles
+        dead = set()
+        for particle in self._particles:
+            particle.update(rel_game_speed)
+            if particle.dead:
+                dead.add(particle)
+        for particle in dead:
+            self._particles.remove(particle)
 
 
 class Entity(object):
@@ -160,10 +246,6 @@ class Entity(object):
         self._render_width = value
 
     @property
-    def velocity(self: Self) -> pg.Vector2:
-        return self._velocity.copy()
-
-    @property
     def health(self: Self) -> int:
         return self._health
 
@@ -178,6 +260,14 @@ class Entity(object):
     @velocity.setter
     def velocity(self: Self, value: Point) -> None:
         self._velocity = pg.Vector2(value)
+
+    @property
+    def speed(self: Self) -> Real:
+        return self._velocity.magnitude()
+
+    @speed.setter
+    def speed(self: Self, value: Real) -> None:
+        self._velocity.scale_to_length(value)
     
     def rect(self: Self, scale: Real=1) -> pg.FRect:
         rect = pg.FRect(0, 0, self._width * scale, self._width * scale)
@@ -283,7 +373,7 @@ class Puck(Entity):
         self._velocity.rotate_ip(
             angle + angle - initial_angle - self._velocity.angle
         )
-
+        
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
         initial = self._velocity.copy()
@@ -330,9 +420,9 @@ class Puck(Entity):
                 self._bounce(line, initial.angle)
                 self._pos[1] = entity_rect.centery / scale
                 self._health = max(self._health - 1, 0)
-
+        
         if self._velocity.magnitude() > SMALL:
-            self._velocity *= 0.99**rel_game_speed
+            self._velocity *= 0.98**rel_game_speed
         else:
             self._velocity.update(0, 0)
         
@@ -343,10 +433,15 @@ class Puck(Entity):
 
 
 class Camera(object):
-    def __init__(self: Self, level: Level, pos: pg.Vector2, zoom: int=16):
+    def __init__(self: Self,
+                 level: Level,
+                 pos: pg.Vector2,
+                 zoom: int=16,
+                 flatness: Real=32): # -1 for perfect flat
         self._level = level
         self._pos = pos
         self._zoom = zoom
+        self._flatness = flatness
 
     @property
     def level(self: Self) -> Level:
@@ -372,6 +467,14 @@ class Camera(object):
     def zoom(self: Self, value: int) -> None:
         self._zoom = value
 
+    @property
+    def flatness(self: Self) -> Real:
+        return self._flatness
+
+    @flatness.setter
+    def flatness(self: Self, value: Real) -> None:
+        self._flatness = value
+
     def gen_map_pos(self: Self,
                     screen_pos: Point,
                     surf_size: Point) -> pg.Vector2:
@@ -394,6 +497,7 @@ class Camera(object):
         self._pos += (follow - self._pos) * mult
 
     def render(self: Self, surf: pg.Surface) -> None:
+        # Background
         surf.fill((0, 0, 0))
         data = self._level._tilemap['bg']
         if data['texture'] != -1:
@@ -403,10 +507,16 @@ class Camera(object):
                 (self._pos[0] - surf.width / 2 / self._zoom) // scale * scale,
                 (self._pos[1] - surf.height / 2 / self._zoom) // scale * scale,
             )
+            if self._flatness != -1:
+                origin -= (
+                    self._pos[0] / self._flatness % scale,
+                    self._pos[1] / self._flatness % scale,
+                )
+                # ^ subtle depth effect
             width = int(surf.width / size)
             height = int(surf.height / size)
-            for y in range(height + 2):
-                for x in range(width + 2):
+            for y in range(height + 3):
+                for x in range(width + 3):
                     surf.blit(
                         pg.transform.scale(
                             self._level._textures[data['texture']],
@@ -417,7 +527,24 @@ class Camera(object):
                             surf.size,
                         ),
                     )
-
+        
+        # Entities
+        for entity in self._level._entities:
+            texture = pg.transform.scale(
+                entity._surf, [entity._render_width * self._zoom] * 2,
+            )
+            pos = self.gen_screen_pos(
+                entity._pos - [entity._render_width / 2] * 2, surf.size,
+            )
+            surf.blit(texture, pos)
+            reflection = pg.transform.scale(
+                pg.transform.flip(texture, 0, 1),
+                (texture.width, texture.height * 0.75)
+            )
+            reflection.set_alpha(40)
+            surf.blit(reflection, pos + (0, texture.height))
+        
+        # Tiles
         origin = pg.Vector2(
             math.floor(self._pos[0] - surf.width / 2 / self._zoom),
             math.floor(self._pos[1] - surf.height / 2 / self._zoom),
@@ -425,8 +552,8 @@ class Camera(object):
         width = int(surf.width / self._zoom)
         height = int(surf.height / self._zoom)
 
-        for y in range(height + 1):
-            for x in range(width + 1):
+        for y in range(height + 2):
+            for x in range(width + 2):
                 tile = origin + (x, y)
                 tile_key = gen_tile_key(tile)
                 data = self._level._tilemap.get(tile_key)
@@ -435,15 +562,22 @@ class Camera(object):
                         self._level._textures[data['texture']],
                         (self._zoom, self._zoom),
                     )
-                    
                     surf.blit(texture, self.gen_screen_pos(tile, surf.size))
-                    
-        for entity in self._level._entities:
-            texture = pg.transform.scale(
-                entity._surf, [entity._render_width * self._zoom] * 2,
+        
+        # Particles
+        for particle in self._level._particles:
+            radius = particle._radius * self._zoom
+            texture = pg.Surface([radius * 2] * 2)
+            texture.set_colorkey((0, 0, 0))
+            texture.set_alpha(particle._alpha)
+            pg.draw.circle(
+                texture,
+                particle._color,
+                [radius] * 2,
+                radius,
             )
             pos = self.gen_screen_pos(
-                entity._pos - [entity._render_width / 2] * 2, surf.size,
+                particle._pos - [particle._radius] * 2, surf.size,
             )
             surf.blit(texture, pos)
 
@@ -472,12 +606,12 @@ class Game(object):
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
         
-        self._puck = Puck((load_img('player.png'),), width=0.9, render_width=1)
+        self._puck = Puck((load_img('puck.png'),), width=0.9, render_width=1)
         self._level = Level(
             entities={self._puck},
             tilemap=load_tilemap(0),
             textures=(
-                load_img('background.png'),
+                load_img('backgrounds', 'level1.png'),
                 load_img('obstacles', 'square.png'),
                 load_img('obstacles', 'triangle1.png'),
                 load_img('obstacles', 'triangle2.png'),
@@ -498,20 +632,28 @@ class Game(object):
 
             rel_game_speed = delta_time * self._GAME_SPEED
 
+            mouse = pg.mouse.get_pressed()
             mouse_pos = pg.mouse.get_pos()
-            vector = self._camera.gen_map_pos(
-                (mouse_pos[0] / self._SURF_RATIO[0],
-                 mouse_pos[1] / self._SURF_RATIO[1]),
-                self._surface.size,
-            ) - self._puck.pos
-            vector = vector.normalize() if vector else pg.Vector2(0, 0)
+            vector = (
+                self._puck.pos
+                - self._camera.gen_map_pos(
+                    (mouse_pos[0] / self._SURF_RATIO[0],
+                     mouse_pos[1] / self._SURF_RATIO[1]),
+                    self._surface.size,
+                )
+            )
+            if vector.magnitude() > 5:
+                vector.scale_to_length(5)
             
             # Events
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self._running = 0
-                elif event.type == pg.MOUSEBUTTONDOWN:
-                    self._puck.velocity = vector * 0.2
+                elif (event.type == pg.MOUSEBUTTONUP
+                      and self._puck.speed < SMALL):
+                    self._puck.velocity = (
+                        vector * 0.1 if vector else pg.Vector2(0, 0)
+                    )
 
             self._level.update(rel_game_speed)
             self._camera.update(rel_game_speed, self._puck.pos)
@@ -519,16 +661,18 @@ class Game(object):
             # Render 
             self._surface.fill((0, 0, 0))
             self._camera.render(self._surface)
-            puck_pos = self._camera.gen_screen_pos(
-                self._puck.pos, self._surface.size,
-            )
-            pg.draw.line(
-                self._surface,
-                (0, 255, 0),
-                puck_pos,
-                puck_pos + vector * self._camera.zoom * 2,
-                2,
-            )
+            if mouse[0] and self._puck.speed < SMALL:
+                puck_pos = self._camera.gen_screen_pos(
+                    self._puck.pos, self._surface.size,
+                )
+                pg.draw.line( # Mouse Vector
+                    self._surface,
+                    (0, 255, 0),
+                    puck_pos,
+                    puck_pos - vector * self._camera.zoom,
+                    2,
+                )
+
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
             self._screen.blit(resized_surf, (0, 0))
 
