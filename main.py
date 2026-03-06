@@ -783,7 +783,7 @@ class Game(object):
                 self._surface.blit(
                     pg.transform.scale(
                         self._images['launch']['can'],
-                        (self._camera.zoom, self._camera.zoom),
+                        [self._camera.zoom * 2] * 2,
                     ),
                     (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
                 )
@@ -791,7 +791,7 @@ class Game(object):
                 self._surface.blit(
                     pg.transform.scale(
                         self._images['launch']['cant'],
-                        (self._camera.zoom, self._camera.zoom),
+                        [self._camera.zoom * 2] * 2,
                     ),
                     (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
                 )
