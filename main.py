@@ -9,6 +9,7 @@ from typing import Self
 from numbers import Real
 
 import pygame as pg
+import pygame.gfxdraw
 from pygame.typing import Point
 from pygame.typing import ColorLike
 
@@ -420,7 +421,7 @@ class Puck(Entity):
                 self._bounce(line, initial.angle)
                 self._pos[1] = entity_rect.centery / scale
                 self._health = max(self._health - 1, 0)
-        
+
         if self._velocity.magnitude() > SMALL:
             self._velocity *= 0.98**rel_game_speed
         else:
@@ -496,6 +497,14 @@ class Camera(object):
         mult = (1 - (1 - 0.025))**rel_game_speed
         self._pos += (follow - self._pos) * mult
 
+    def _render_shadow(self: Self,
+                       surf: pg.Surface,
+                       texture: pg.Surface,
+                       pos: pg.Vector2) -> None:
+        shadow = pg.transform.hsl(texture, 0, 0, -0.9)
+        shadow.set_alpha(128)
+        surf.blit(shadow, (pos[0], pos[1] + 0.75 * texture.height))
+
     def render(self: Self, surf: pg.Surface) -> None:
         # Background
         surf.fill((0, 0, 0))
@@ -536,14 +545,9 @@ class Camera(object):
             pos = self.gen_screen_pos(
                 entity._pos - [entity._render_width / 2] * 2, surf.size,
             )
+            self._render_shadow(surf, texture, pos)
             surf.blit(texture, pos)
-            reflection = pg.transform.scale(
-                pg.transform.flip(texture, 0, 1),
-                (texture.width, texture.height * 0.75)
-            )
-            reflection.set_alpha(40)
-            surf.blit(reflection, pos + (0, texture.height))
-        
+
         # Tiles
         origin = pg.Vector2(
             math.floor(self._pos[0] - surf.width / 2 / self._zoom),
@@ -551,9 +555,10 @@ class Camera(object):
         )
         width = int(surf.width / self._zoom)
         height = int(surf.height / self._zoom)
-
-        for y in range(height + 2):
-            for x in range(width + 2):
+        
+        # -1 for tile shadows
+        for y in range(-1, height + 2):
+            for x in range(-1, width + 2):
                 tile = origin + (x, y)
                 tile_key = gen_tile_key(tile)
                 data = self._level._tilemap.get(tile_key)
@@ -562,7 +567,9 @@ class Camera(object):
                         self._level._textures[data['texture']],
                         (self._zoom, self._zoom),
                     )
-                    surf.blit(texture, self.gen_screen_pos(tile, surf.size))
+                    pos = self.gen_screen_pos(tile, surf.size)
+                    self._render_shadow(surf, texture, pos)
+                    surf.blit(texture, pos)
         
         # Particles
         for particle in self._level._particles:
@@ -662,16 +669,26 @@ class Game(object):
             self._surface.fill((0, 0, 0))
             self._camera.render(self._surface)
             if mouse[0] and self._puck.speed < SMALL:
-                puck_pos = self._camera.gen_screen_pos(
+                start_pos = self._camera.gen_screen_pos(
                     self._puck.pos, self._surface.size,
+                )
+                end_pos = start_pos - vector * self._camera.zoom
+                pg.draw.line( # Shadow
+                    self._surface,
+                    (0, 96, 0),
+                    start_pos + (0, 2),
+                    end_pos + (0, 2),
+                    2,
                 )
                 pg.draw.line( # Mouse Vector
                     self._surface,
                     (0, 255, 0),
-                    puck_pos,
-                    puck_pos - vector * self._camera.zoom,
+                    start_pos,
+                    end_pos,
                     2,
                 )
+
+            pg.display.set_caption(str(1 / delta_time) if delta_time else 'inf')
 
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
             self._screen.blit(resized_surf, (0, 0))
