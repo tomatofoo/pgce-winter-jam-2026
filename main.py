@@ -577,15 +577,15 @@ class Camera(object):
                 (self._pos[1] - surf.height / 2 / self._zoom) // scale * scale,
             )
             if self._flatness != -1:
-                origin -= (
+                origin += (
                     self._pos[0] / self._flatness % scale,
                     self._pos[1] / self._flatness % scale,
                 )
                 # ^ subtle depth effect
             width = int(surf.width / size)
             height = int(surf.height / size)
-            for y in range(height + 3):
-                for x in range(width + 3):
+            for y in range(-1, height + 2):
+                for x in range(-1, width + 2):
                     surf.blit(
                         pg.transform.scale(
                             self._level._textures[data['texture']],
