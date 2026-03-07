@@ -15,6 +15,7 @@ from modules.utils import load_tilemap
 from modules.level import Puck
 from modules.level import Level
 from modules.camera import Camera
+from modules.menu import Menu
 
 
 class Game(object):
@@ -40,8 +41,9 @@ class Game(object):
         pg.display.set_caption('Icebox')
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
-        
-        self._state = 'tutorial'
+        self._level_timer = 0
+
+        self._state = 'dead'
 
         self._images = {
             'launch': {
@@ -68,6 +70,7 @@ class Game(object):
             'launch': load_sfx('launch.mp3'),
         }
         
+        # Game Stuff
         self._puck = Puck(
             surfs=self._images['puck'],
             width=0.9,
@@ -88,6 +91,10 @@ class Game(object):
             ),
         )
         self._camera = Camera(self._level, (0, 0))
+        
+        # Menus
+        self._dead_menu = Menu(
+        )
 
     def run(self: Self) -> None:
         self._running = 1
@@ -99,6 +106,7 @@ class Game(object):
             start_time = time.time()
 
             rel_game_speed = delta_time * self._GAME_SPEED
+            self._level_timer += rel_game_speed
 
             mouse = pg.mouse.get_pressed()
             mouse_pos = pg.mouse.get_pos()
@@ -130,7 +138,18 @@ class Game(object):
                         sound.play()
             
             if self._state == 'dead':
-                pass
+                self._surface.fill((0, 0, 0))
+                bg = self._level.background
+                if bg is not None:
+                    size = self._camera.zoom * self._level.tilemap['bg']['scale']
+                    bg = pg.transform.scale(bg, (size, size))
+                    offset = pg.Vector2(
+                        self._level_timer / 240 % 1 * size,
+                        self._level_timer / 240 % 1 * size
+                    )
+                    for y in range(-1, int(self._SURF_SIZE[1] / bg.height) + 1):
+                        for x in range(-1, int(self._SURF_SIZE[0] / bg.width) + 1):
+                            self._surface.blit(bg, (x * size, y * size) + offset)
             else:
                 self._level.update(rel_game_speed)
                 self._camera.update(rel_game_speed, self._puck.pos)

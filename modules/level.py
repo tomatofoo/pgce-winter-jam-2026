@@ -407,6 +407,11 @@ class Level(object):
     def particles(self: Self) -> set[Particle]:
         return self._particles
 
+    @property
+    def background(self: Self) -> Optional[pg.Surface]:
+        dex = self._tilemap['bg']['texture']
+        return self._textures[dex] if dex != -1 else None
+
     def spawn_particle(self: Self,
                        color: ColorLike,
                        radius: Real=0.5,
