@@ -657,7 +657,8 @@ class Game(object):
         pg.display.set_caption('Icebox')
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
-
+        
+        self._state = 'tutorial'
 
         self._images = {
             'launch': {
@@ -673,6 +674,8 @@ class Game(object):
                 load_img('puck', '6.png'),
                 load_img('puck', '7.png'),
                 load_img('puck', '8.png'),
+                load_img('puck', '9.png'),
+                load_img('puck', '10.png'),
             ),
         }
 
@@ -724,64 +727,69 @@ class Game(object):
                     self._surface.size,
                 )
             )
-            if vector.magnitude() > 5:
+            if vector.magnitude() > 5: # cant scale zero vector
                 vector.scale_to_length(5)
             can_launch = self._puck.speed < SMALL
-            
+
             # Events
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self._running = 0
-                elif event.type == pg.MOUSEBUTTONUP and can_launch:
-                    self._puck.velocity = (
-                        vector * 0.1 if vector else pg.Vector2(0, 0)
-                    )
-                    sound = self._sounds['launch']
-                    sound.set_volume(vector.magnitude())
-                    sound.play()
-
-            self._level.update(rel_game_speed)
-            self._camera.update(rel_game_speed, self._puck.pos)
-
-            # Render 
-            self._surface.fill((0, 0, 0))
-            self._camera.render(self._surface)
-            if mouse[0] and self._puck.speed < SMALL:
-                size = int(self._camera.zoom / 8)
-                start_pos = self._camera.gen_screen_pos(
-                    self._puck.pos, self._surface.size,
-                )
-                end_pos = start_pos - vector * self._camera.zoom
-                pg.draw.line( # Shadow
-                    self._surface,
-                    (0, 96, 0),
-                    start_pos + (0, size),
-                    end_pos + (0, size),
-                    size,
-                )
-                pg.draw.line( # Actual Line
-                    self._surface,
-                    (0, 255, 0),
-                    start_pos,
-                    end_pos,
-                    size,
-                )
-            if can_launch:
-                self._surface.blit(
-                    pg.transform.scale(
-                        self._images['launch']['can'],
-                        [self._camera.zoom * 2] * 2,
-                    ),
-                    (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
-                )
+                elif self._state == 'dead':
+                    pass
+                else:
+                    if event.type == pg.MOUSEBUTTONUP and can_launch:
+                        self._puck.velocity = (
+                            vector * 0.1 if vector else pg.Vector2(0, 0)
+                        )
+                        sound = self._sounds['launch']
+                        sound.set_volume(vector.magnitude())
+                        sound.play()
+            
+            if self._state == 'dead':
+                self._dead(rel_game_speed)
             else:
-                self._surface.blit(
-                    pg.transform.scale(
-                        self._images['launch']['cant'],
-                        [self._camera.zoom * 2] * 2,
-                    ),
-                    (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
-                )
+                self._level.update(rel_game_speed)
+                self._camera.update(rel_game_speed, self._puck.pos)
+
+                # Render 
+                self._camera.render(self._surface)
+                if mouse[0] and self._puck.speed < SMALL:
+                    size = int(self._camera.zoom / 8)
+                    start_pos = self._camera.gen_screen_pos(
+                        self._puck.pos, self._surface.size,
+                    )
+                    end_pos = start_pos - vector * self._camera.zoom
+                    pg.draw.line( # Shadow
+                        self._surface,
+                        (0, 96, 0),
+                        start_pos + (0, size),
+                        end_pos + (0, size),
+                        size,
+                    )
+                    pg.draw.line( # Actual Line
+                        self._surface,
+                        (0, 255, 0),
+                        start_pos,
+                        end_pos,
+                        size,
+                    )
+                if can_launch:
+                    self._surface.blit(
+                        pg.transform.scale(
+                            self._images['launch']['can'],
+                            [self._camera.zoom * 2] * 2,
+                        ),
+                        (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
+                    )
+                else:
+                    self._surface.blit(
+                        pg.transform.scale(
+                            self._images['launch']['cant'],
+                            [self._camera.zoom * 2] * 2,
+                        ),
+                        (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
+                    )
 
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
             self._screen.blit(resized_surf, (0, 0))
