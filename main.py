@@ -347,7 +347,6 @@ class Puck(Entity):
                  render_width: Optional[Real]=None,
                  health: int=100,
                  bounce_sound: Optional[mx.Sound]=None,
-                 crack_sound: Optional[mx.Sound]=None,
                  die_sound: Optional[mx.Sound]=None):
 
         super().__init__(
@@ -363,7 +362,6 @@ class Puck(Entity):
 
         self._sounds = {
             'bounce': bounce_sound,
-            'crack': crack_sound,
             'die': die_sound,
         }
 
@@ -382,14 +380,6 @@ class Puck(Entity):
     @bounce_sound.setter
     def bounce_sound(self: Self, value: Optional[mx.Sound]) -> None:
         self._sounds['bounce'] = value
-
-    @property
-    def crack_sound(self: Self) -> Optional[mx.Sound]:
-        return self._sounds['crack']
-
-    @crack_sound.setter
-    def crack_sound(self: Self, value: Optional[mx.Sound]) -> None:
-        self._sounds['crack'] = value
 
     @property
     def die_sound(self: Self) -> Optional[mx.Sound]:
@@ -479,12 +469,7 @@ class Puck(Entity):
             surf_dex = int(math.floor(
                 (1 - (self._health / self._max_health)) * len(self._surfs)
             ))
-            if surf_dex != self._surf_dex:
-                sound = self._sounds['crack']
-                if sound is not None:
-                    sound.play()
-                self._surf_dex = surf_dex
-            self._surf = self._surfs[self._surf_dex]
+            self._surf = self._surfs[surf_dex]
 
         # Sounds
         sound = self._sounds['bounce']
@@ -693,6 +678,7 @@ class Game(object):
 
         self._sounds = {
             'bounce': load_sfx('bounce.mp3'),
+            'die': load_sfx('die.mp3'),
             'launch': load_sfx('launch.mp3'),
         }
         
@@ -701,6 +687,7 @@ class Game(object):
             width=0.9,
             render_width=1,
             bounce_sound=self._sounds['bounce'],
+            die_sound=self._sounds['die'],
         )
         self._level = Level(
             entities={self._puck},
