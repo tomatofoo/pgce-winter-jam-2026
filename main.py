@@ -498,7 +498,7 @@ class Camera(object):
                  level: Level,
                  pos: pg.Vector2,
                  zoom: int=16,
-                 flatness: Real=32): # -1 for perfect flat
+                 flatness: Real=36): # -1 for perfect flat
         self._level = level
         self._pos = pos
         self._zoom = zoom
