@@ -382,7 +382,10 @@ class Level(object):
     @specials.setter
     def specials(self: Self, value: dict[str, Special]) -> None:
         self._special_key = value
+        self._specials = {}
         for key, value in self._tilemap.items():
+            if key == 'bg':
+                continue
             special_type = value['type']
             if special_type != 'normal':
                 special = self._special_key[special_type]

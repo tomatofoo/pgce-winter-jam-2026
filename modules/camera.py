@@ -70,7 +70,7 @@ class Camera(object):
         )
 
     def update(self: Self, rel_game_speed: Real, follow: pg.Vector2) -> None:
-        mult = (1 - (1 - 0.025))**rel_game_speed
+        mult = (1 - (1 - 0.025)**rel_game_speed)
         self._pos += (follow - self._pos) * mult
 
     def _render_shadow(self: Self,

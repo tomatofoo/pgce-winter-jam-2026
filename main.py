@@ -219,6 +219,7 @@ class Game(object):
                     )
                     self._dead_widgets['bounces'].text = (
                         f'Bounces: {self._bounces}'
+                    )
                     self._sounds['die'].play()
 
                 # Render 
