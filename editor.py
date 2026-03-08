@@ -60,7 +60,7 @@ class Game(object):
             },
         }
         self._textures = [
-            load_img('backgrounds', 'level1.png'),
+            load_img('backgrounds', '1.png'),
             load_img('obstacles', 'square.png'),
             load_img('obstacles', 'triangle1.png'),
             load_img('obstacles', 'triangle2.png'),
@@ -192,11 +192,11 @@ class Game(object):
                 // scale * scale,
                 (self._pos[1] - self._SCREEN_SIZE[1] / 2 / self._zoom)
                 // scale * scale,
-            )
+            ) + (self._pos[0] / 36 % scale, self._pos[1] / 36 % scale)
             width = int(self._SCREEN_SIZE[0] / size)
             height = int(self._SCREEN_SIZE[1] / size)
-            for y in range(height + 2):
-                for x in range(width + 2):
+            for y in range(-1, height + 2):
+                for x in range(-1, width + 2):
                     self._screen.blit(
                         pg.transform.scale(
                             self._textures[data['texture']], (size, size),

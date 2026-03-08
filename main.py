@@ -8,13 +8,17 @@ from pygame import mixer as mx
 from pygame.typing import Point
 
 from modules.utils import SMALL
+from modules.utils import load_fnt
 from modules.utils import load_img
 from modules.utils import load_sfx
 from modules.utils import load_mus
 from modules.utils import load_tilemap
+from modules.utils import gen_text_button_surf
 from modules.level import Puck
 from modules.level import Level
 from modules.camera import Camera
+from modules.menu import Text
+from modules.menu import Button
 from modules.menu import Menu
 
 
@@ -42,9 +46,13 @@ class Game(object):
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
         self._level_timer = 0
+        
 
         self._state = 'dead'
-
+        self._restarted = 0
+        
+        # Assets
+        self._font = pg.font.SysFont('Arial', 24)
         self._images = {
             'launch': {
                 'can': load_img('launch', 'can.png'),
@@ -63,7 +71,6 @@ class Game(object):
                 load_img('puck', '10.png'),
             ),
         }
-
         self._sounds = {
             'bounce': load_sfx('bounce.mp3'),
             'die': load_sfx('die.mp3'),
@@ -93,8 +100,25 @@ class Game(object):
         self._camera = Camera(self._level, (0, 0))
         
         # Menus
-        self._dead_menu = Menu(
-        )
+        self._dead_menu = Menu({
+            Text(
+                self._font,
+                'YOU CRACKED!',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
+            ),
+
+            Button(
+                gen_text_button_surf(self._font, 'Restart', (255, 0, 0)),
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                self._restart,
+            )
+        })
+
+    def _restart(self: Self) -> None:
+        self._state = 'alive'
+        self._puck.health = 100
+        self._puck.pos = (0, 0)
+        self._restarted = 1
 
     def run(self: Self) -> None:
         self._running = 1
@@ -110,13 +134,11 @@ class Game(object):
 
             mouse = pg.mouse.get_pressed()
             mouse_pos = pg.mouse.get_pos()
+            mouse_pos = (mouse_pos[0] / self._SURF_RATIO[0],
+                         mouse_pos[1] / self._SURF_RATIO[1])
             vector = (
                 self._puck.pos
-                - self._camera.gen_map_pos(
-                    (mouse_pos[0] / self._SURF_RATIO[0],
-                     mouse_pos[1] / self._SURF_RATIO[1]),
-                    self._surface.size,
-                )
+                - self._camera.gen_map_pos(mouse_pos, self._surface.size)
             )
             if vector.magnitude() > 5: # cant scale zero vector
                 vector.scale_to_length(5)
@@ -127,9 +149,13 @@ class Game(object):
                 if event.type == pg.QUIT:
                     self._running = 0
                 elif self._state == 'dead':
-                    pass
+                    self._dead_menu.handle_event(event)
                 else:
-                    if event.type == pg.MOUSEBUTTONUP and can_launch:
+                    if event.type == pg.MOUSEBUTTONDOWN:
+                        self._restarted = 0
+                    elif (event.type == pg.MOUSEBUTTONUP
+                        and can_launch
+                        and not self._restarted):
                         self._puck.velocity = (
                             vector * 0.1 if vector else pg.Vector2(0, 0)
                         )
@@ -138,6 +164,10 @@ class Game(object):
                         sound.play()
             
             if self._state == 'dead':
+                # Update
+                self._dead_menu.update(rel_game_speed, mouse_pos, mouse)
+                
+                # Render
                 self._surface.fill((0, 0, 0))
                 bg = self._level.background
                 if bg is not None:
@@ -150,13 +180,20 @@ class Game(object):
                     for y in range(-1, int(self._SURF_SIZE[1] / bg.height) + 1):
                         for x in range(-1, int(self._SURF_SIZE[0] / bg.width) + 1):
                             self._surface.blit(bg, (x * size, y * size) + offset)
+                self._dead_menu.render(self._surface)
             else:
+                # Update
                 self._level.update(rel_game_speed)
                 self._camera.update(rel_game_speed, self._puck.pos)
 
+                if self._puck.dead:
+                    self._state = 'dead'
+
                 # Render 
                 self._camera.render(self._surface)
-                if mouse[0] and self._puck.speed < SMALL:
+                if (mouse[0]
+                    and self._puck.speed < SMALL
+                    and not self._restarted):
                     size = int(self._camera.zoom / 8)
                     start_pos = self._camera.gen_screen_pos(
                         self._puck.pos, self._surface.size,
