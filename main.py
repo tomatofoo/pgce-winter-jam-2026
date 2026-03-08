@@ -17,6 +17,7 @@ from modules.utils import load_tilemap
 from modules.utils import gen_text_surf
 from modules.utils import gen_text_button_surf
 from modules.level import Puck
+from modules.level import Boost
 from modules.level import Level
 from modules.camera import Camera
 from modules.menu import Text
@@ -75,11 +76,24 @@ class Game(object):
                 load_img('puck', '9.png'),
                 load_img('puck', '10.png'),
             ),
+            'textures': (
+                load_img('backgrounds', '1.png'),
+                load_img('obstacles', 'square.png'),
+                load_img('obstacles', 'triangle1.png'),
+                load_img('obstacles', 'triangle2.png'),
+                load_img('obstacles', 'triangle3.png'),
+                load_img('obstacles', 'triangle4.png'),
+                load_img('specials', 'boost_up.png'),
+                load_img('specials', 'boost_down.png'),
+                load_img('specials', 'boost_left.png'),
+                load_img('specials', 'boost_right.png'),
+            )
         }
         self._sounds = {
             'bounce': load_sfx('bounce.mp3'),
             'die': load_sfx('die.mp3'),
             'launch': load_sfx('launch.mp3'),
+            'boost': load_sfx('boost.mp3'),
         }
         
         # Game Stuff
@@ -91,14 +105,13 @@ class Game(object):
         self._level = Level(
             entities={self._puck},
             tilemap=load_tilemap(0),
-            textures=(
-                load_img('backgrounds', '1.png'),
-                load_img('obstacles', 'square.png'),
-                load_img('obstacles', 'triangle1.png'),
-                load_img('obstacles', 'triangle2.png'),
-                load_img('obstacles', 'triangle3.png'),
-                load_img('obstacles', 'triangle4.png'),
-            ),
+            specials={
+                'boost_up': Boost('up', sound=self._sounds['boost']),
+                'boost_down': Boost('down', sound=self._sounds['boost']),
+                'boost_left': Boost('left', sound=self._sounds['boost']),
+                'boost_right': Boost('right', sound=self._sounds['boost']),
+            },
+            textures=self._images['textures']
         )
         self._camera = Camera(self._level)
         
@@ -137,6 +150,7 @@ class Game(object):
         self._puck.health = 100
         self._puck.pos = (0, 0)
         self._puck.velocity = (0, 0)
+        self._puck.boost = (0, 0)
         self._restarted = 1
 
     def run(self: Self) -> None:
@@ -210,7 +224,7 @@ class Game(object):
                 if self._puck.bounced:
                     self._bounces += 1
                     sound = self._sounds['bounce']
-                    sound.set_volume(self._puck.speed * 0.8)
+                    sound.set_volume(self._puck.net_speed * 0.8)
                     sound.play()
                 if self._puck.dead:
                     self._state = 'dead'

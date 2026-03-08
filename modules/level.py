@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from typing import Self
 from numbers import Real
@@ -89,6 +91,7 @@ class Entity(object):
         self._width = width
         self.render_width = render_width
         self._velocity = pg.Vector2(0, 0)
+        self._boost = pg.Vector2(0, 0)
 
     @property
     def surf(self: Self) -> pg.Surface:
@@ -153,8 +156,16 @@ class Entity(object):
         return self._velocity.copy()
 
     @velocity.setter
-    def velocity(self: Self, value: Point) -> None:
+    def velocity(self: Self, value: pg.Vector2) -> None:
         self._velocity = pg.Vector2(value)
+
+    @property
+    def boost(self: Self) -> pg.Vector2:
+        return self._boost.copy()
+
+    @boost.setter
+    def boost(self: Self, value: pg.Vector2) -> None:
+        self._boost = pg.Vector2(value)
 
     @property
     def speed(self: Self) -> Real:
@@ -165,6 +176,22 @@ class Entity(object):
         self._velocity.scale_to_length(value)
 
     @property
+    def boost_speed(self: Self) -> Real:
+        return self._boost.magnitude()
+
+    @boost_speed.setter
+    def boost_speed(self: Self, value: Real) -> None:
+        self._boost.scale_to_length(value)
+
+    @property
+    def net_velocity(self: Self) -> None:
+        return self._velocity + self._boost
+
+    @property
+    def net_speed(self: Self) -> Real:
+        return self.net_velocity.magnitude()
+
+    @property
     def dead(self: Self) -> bool:
         return self._health <= 0
     
@@ -173,7 +200,8 @@ class Entity(object):
         rect.center = self._pos * scale
         return rect
 
-    def _get_lines_around(self: Self, scale: Real=1) -> list[tuple[Point]]:
+    def _get_lines_around(self: Self,
+                          scale: Real=1) -> list[Special, tuple[Point], dict]:
         lines = []
         for offset in self._TILE_OFFSETS:
             tile = pg.Vector2(
@@ -183,46 +211,92 @@ class Entity(object):
             tile_key = gen_tile_key(tile)
             data = self._level._tilemap.get(tile_key)
             if data is not None:
+                special = None
+                special_type = data['type']
+                if special_type != 'normal':
+                    special = self._level._special_key[special_type]
                 for line in data['lines']:
-                    lines.append(
+                    lines.append((
+                        special,
                         ((tile + line[0]) * scale, (tile + line[1]) * scale),
-                    )
+                        data,
+                    ))
         return lines
+
+    def _get_special_rects_around(
+        self: Self,
+        pos: pg.Vector2
+    ) -> list[tuple[Special, pg.Rect, dict]]:
+        rects = []
+        for offset in self._TILE_OFFSETS:
+            tile = pg.Vector2(
+                math.floor(self._pos[0] + offset[0]),
+                math.floor(self._pos[1] + offset[1]),
+            )
+            tile_key = gen_tile_key(tile)
+            data = self._level._tilemap.get(tile_key)
+            if data is not None and data['type'] != 'normal':
+                special = self._level._special_key[data['type']]
+                if not special._bounce:
+                    rects.append((special, pg.Rect(tile, (1, 1)), data))
+        return rects
 
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
+        velocity = self._velocity + self._boost
 
-        self._pos[0] += self._velocity[0] * rel_game_speed
+        pos = self._pos + velocity * rel_game_speed
+        entity_rect = pg.FRect(0, 0, self._width, self._width)
+        entity_rect.center = pos
+        for special, rect, data in self._get_special_rects_around(pos):
+            if entity_rect.colliderect(rect):
+                special.interact(self, data)
+
+        bounced = (None, None) # special, data
+
+        self._pos[0] += velocity[0] * rel_game_speed
         entity_rect = self.rect(scale)
-        for line in self._get_lines_around(scale):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
-                if self._velocity[0] > 0:
+                if velocity[0] > 0:
                     entity_rect.right = min(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) - 1
-                elif self._velocity[0] < 0:
+                    bounced = (special, data)
+                elif velocity[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) + 1
+                    bounced = (special, data)
                 self._pos[0] = entity_rect.centerx / scale
         
-        self._pos[1] += self._velocity[1] * rel_game_speed
+        self._pos[1] += velocity[1] * rel_game_speed
         entity_rect = self.rect(scale)
-        for line in self._get_lines_around(scale):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
-                if self._velocity[1] > 0:
+                if velocity[1] > 0:
                     entity_rect.bottom = min(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
                     ) - 1
-                elif self._velocity[1] < 0:
+                    bounced = (special, data)
+                elif velocity[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
                     ) + 1
+                    bounced = (special, data)
                 self._pos[1] = entity_rect.centery / scale
+
+        if bounced[0] is not None:
+            bounced[0].interact(self, bounced[1])
+        
+        if self._boost.magnitude() > SMALL:
+            self._boost *= 0.95**rel_game_speed
+        else:  
+            self._boost.update(0, 0)
 
 
 class Puck(Entity):
@@ -258,73 +332,96 @@ class Puck(Entity):
 
     def _bounce(self: Self,
                 line: tuple[Point],
-                initial_angle: Real=None) -> None:
-        if initial_angle is None:
-            initial_angle = self._velocity.angle
+                initial_angle: Real,
+                vector: pg.Vector2) -> None:
         # Bounce across line
         difference = line[1][0] - line[0][0]
         angle = math.degrees(math.atan2(
             (line[1][1] - line[0][1]), difference,
         )) if difference else 90
-        self._velocity.rotate_ip(
-            angle + angle - initial_angle - self._velocity.angle
-        )
+        vector.rotate_ip(angle + angle - initial_angle - vector.angle)
         
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
-        initial = self._velocity.copy()
+        initial_velocity = self._velocity.copy()
+        initial_boost = self._boost.copy()
+        velocity = self._velocity + self._boost
         self._bounced = 0
 
-        self._pos[0] += initial[0] * rel_game_speed
+        pos = self._pos + velocity * rel_game_speed
+        entity_rect = pg.FRect(0, 0, self._width, self._width)
+        entity_rect.center = pos
+        for special, rect, data in self._get_special_rects_around(pos):
+            if entity_rect.colliderect(rect):
+                special.interact(self, data)
+
+        bounced = (None, None) # special, data
+
+        self._pos[0] += velocity[0] * rel_game_speed
         entity_rect = self.rect(scale)
-        for line in self._get_lines_around(scale):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 # The +1 is scaled down by scale (100)
                 # It accounts for inaccuracies
                 # Also btw collisions mgiht be messed up
                 # Yes I know it isn't pretty but its a game jam
-                if initial[0] > 0:
+                if velocity[0] > 0:
                     entity_rect.right = min(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) - 1
                     self._bounced = 1
-                elif initial[0] < 0:
+                    bounced = (special, data)
+                elif velocity[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) + 1
                     self._bounced = 1
+                    bounced = (special, data)
 
                 # angle would be same so don't need to scale down line
-                self._bounce(line, initial.angle)
+                self._bounce(line, initial_velocity.angle, self._velocity)
+                self._bounce(line, initial_boost.angle, self._boost)
                 self._pos[0] = entity_rect.centerx / scale
         
-        self._pos[1] += initial[1] * rel_game_speed
+        self._pos[1] += velocity[1] * rel_game_speed
         entity_rect = self.rect(scale)
-        for line in self._get_lines_around(scale):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
-                if initial[1] > 0:
+                if velocity[1] > 0:
                     entity_rect.bottom = min(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
                     ) - 1
                     self._bounced = 1
-                elif initial[1] < 0:
+                    bounced = (special, data)
+                elif velocity[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right), 
                     ) + 1
                     self._bounced = 1
+                    bounced = (special, data)
 
-                self._bounce(line, initial.angle)
+                self._bounce(line, initial_velocity.angle, self._velocity)
+                self._bounce(line, initial_boost.angle, self._boost)
                 self._pos[1] = entity_rect.centery / scale
+
+        if bounced[0] is not None:
+            bounced[0].interact(self, bounced[1])
+
         self._health = max(self._health - self._bounced, 0)
 
         if self._velocity.magnitude() > SMALL:
             self._velocity *= 0.98**rel_game_speed
         else:
             self._velocity.update(0, 0)
+
+        if self._boost.magnitude() > SMALL:
+            self._boost *= 0.95**rel_game_speed
+        else:  
+            self._boost.update(0, 0)
         
         if not self.dead:
             surf_dex = int(math.floor(
@@ -334,11 +431,105 @@ class Puck(Entity):
 
 
 class Special(object): # must be deepcopied per level
-    def __init__(self: Self) -> None:
+    def __init__(self: Self, bounce: bool=0) -> None:
         self._tiles = {} # tiles and data
+        self._bounce = bounce
 
-    def update(rel_game_speed: Real, data: dict) -> dict:
+    @property
+    def bounce(self: Self) -> bool:
+        return self._bounce
+
+    @bounce.setter
+    def bounce(self: Self, value: bool) -> None:
+        self._bounce = value
+
+    def interact(self: Self, entity: Entity, data: dict) -> None:
+        pass
+    
+    def _start_frame(self: Self) -> None: # called every frame by level.update
+        pass
+
+    def _end_frame(self: Self) -> None:
+        pass
+
+    def update(self: Self, rel_game_speed: Real, data: dict) -> dict:
         return data
+
+
+class Boost(Special):
+    # up, down, left, right are possible direction
+    def __init__(self: Self,
+                 angle: Real | str='up',
+                 magnitude: Real=0.4,
+                 sound: Optional[mx.Sound]=None,
+                 bounce: bool=0) -> None:
+        super().__init__(bounce)
+        self.angle = angle
+        self._magnitude = magnitude
+        self._sound = sound
+        self._boosts = [] # boosts in last frame
+        # ^ used for sounds to not repeat
+        # ^ not set because dict is unhashable
+        self._last_boosts = self._boosts
+
+    @property
+    def angle(self: Self) -> Real:
+        return self._angle
+
+    @angle.setter
+    def angle(self: Self, value: Real | str) -> None:
+        if value == 'up':
+            value = 90
+        elif value == 'down':
+            value = -90
+        elif value == 'left':
+            value = 180
+        elif value == 'right':
+            value = 0
+        self._angle = value
+
+    @property
+    def magnitude(self: Self) -> Real:
+        return self._magnitude
+
+    @magnitude.setter
+    def magnitude(self: Self, value: Real) -> None:
+        self._magnitude = value
+
+    @property
+    def sound(self: Self) -> Optional[mx.Sound]:
+        return self._sound
+
+    @sound.setter
+    def sound(self: Self, value: Optional[mx.Sound]) -> None:
+        self._sound = value
+
+    def interact(self: Self, entity: Entity, data: dict) -> None:
+        boost = (entity, data)
+        self._boosts.append(boost)
+
+        entity.boost = pg.Vector2(self._magnitude, 0).rotate(self._angle)
+        
+        if self._sound is not None and boost not in self._last_boosts:
+            self._sound.set_volume(self._magnitude)
+            self._sound.play()
+
+    def _end_frame(self: Self) -> None:
+        self._last_boosts = self._boosts
+        self._boosts = []
+
+
+class End(Special):
+    def __init__(self: Self, bounce: bool=0) -> None:
+        super().__init__(bounce)
+        self._touched = None
+
+    @property
+    def touched(self: Self) -> Optional[Entity]:
+        return self._touched
+
+    def interact(self: Self, entity: Entity, data: dict) -> None:
+        self._touched = entity
 
 
 class Level(object):
@@ -432,11 +623,13 @@ class Level(object):
             entity.update(rel_game_speed)
 
         # Specials
-        for special, key in self._specials.items():
-            for key in tiles:
+        for special, keys in self._specials.items():
+            special._start_frame()
+            for key in keys:
                 self._tilemap[key] = special.update(
                     rel_game_speed, self._tilemap[key],
                 )
+            special._end_frame()
         
         # Particles
         dead = set()

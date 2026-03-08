@@ -67,12 +67,17 @@ class Game(object):
             load_img('obstacles', 'triangle2.png'),
             load_img('obstacles', 'triangle3.png'),
             load_img('obstacles', 'triangle4.png'),
+            load_img('specials', 'boost_up.png'),
+            load_img('specials', 'boost_down.png'),
+            load_img('specials', 'boost_left.png'),
+            load_img('specials', 'boost_right.png'),
         ]
         self._lines = [
             (((0, 0), (1, 0)), # SQUARE
              ((1, 0), (1, 1)),
              ((1, 1), (0, 1)),
              ((0, 1), (0, 0))),
+            tuple(),           # EMPTY
             (((0, 0), (0, 1)), # TRIANGLE1
              ((0, 1), (1, 1)),
              ((1, 1), (0, 0))),
@@ -89,7 +94,10 @@ class Game(object):
         self._types = [
             'normal',
             'end',
-            'boost',
+            'boost_up',
+            'boost_down',
+            'boost_left',
+            'boost_right',
         ]
         self._data = {
             'texture': 1,
@@ -298,8 +306,10 @@ class Game(object):
                             self._data['lines'] = self._lines[self._lines_dex]
                     elif event.key == pg.K_9:
                         self._type_dex = (self._type_dex - 1) % len(self._types)
+                        self._data['type'] = self._types[self._type_dex]
                     elif event.key == pg.K_0:
                         self._type_dex = (self._type_dex + 1) % len(self._types)
+                        self._data['type'] = self._types[self._type_dex]
                     elif event.key == pg.K_b:
                         self._tool = 'place'
                     elif event.key == pg.K_e:
