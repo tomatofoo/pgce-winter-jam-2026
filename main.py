@@ -18,6 +18,7 @@ from modules.utils import gen_text_surf
 from modules.utils import gen_text_button_surf
 from modules.level import Puck
 from modules.level import Boost
+from modules.level import End
 from modules.level import Level
 from modules.camera import Camera
 from modules.menu import Text
