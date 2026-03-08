@@ -1,5 +1,6 @@
 import time
 import math
+import random
 from typing import Self
 from numbers import Real
 
@@ -13,6 +14,7 @@ from modules.utils import load_img
 from modules.utils import load_sfx
 from modules.utils import load_mus
 from modules.utils import load_tilemap
+from modules.utils import gen_text_surf
 from modules.utils import gen_text_button_surf
 from modules.level import Puck
 from modules.level import Level
@@ -22,6 +24,7 @@ from modules.menu import Button
 from modules.menu import Menu
 
 
+# Sloppy coded but it's okay because it's a game jam
 class Game(object):
 
     _SCREEN_SIZE = (960, 720)
@@ -47,12 +50,14 @@ class Game(object):
         self._running = 0
         self._level_timer = 0
         
-
-        self._state = 'dead'
+    
+        self._state = 'alive'
         self._restarted = 0
+        self._strokes = 0
+        self._bounces = 0
         
         # Assets
-        self._font = pg.font.SysFont('Arial', 24)
+        self._font = pg.font.SysFont('Arial', int(self._SURF_SIZE[1] / 15))
         self._images = {
             'launch': {
                 'can': load_img('launch', 'can.png'),
@@ -82,8 +87,6 @@ class Game(object):
             surfs=self._images['puck'],
             width=0.9,
             render_width=1,
-            bounce_sound=self._sounds['bounce'],
-            die_sound=self._sounds['die'],
         )
         self._level = Level(
             entities={self._puck},
@@ -97,16 +100,29 @@ class Game(object):
                 load_img('obstacles', 'triangle4.png'),
             ),
         )
-        self._camera = Camera(self._level, (0, 0))
+        self._camera = Camera(self._level)
         
         # Menus
+        self._widgets = {
+            'strokes': Text(
+                self._font,
+                f'Strokes: {self._strokes}',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+            ),
+            'bounces': Text(
+                self._font,
+                f'Bounces: {self._bounces}',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+            ),
+        }
         self._dead_menu = Menu({
             Text(
                 self._font,
                 'YOU CRACKED!',
                 (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
             ),
-
+            self._widgets['strokes'],
+            self._widgets['bounces'],
             Button(
                 gen_text_button_surf(self._font, 'Restart', (255, 0, 0)),
                 (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
@@ -116,8 +132,11 @@ class Game(object):
 
     def _restart(self: Self) -> None:
         self._state = 'alive'
+        self._strokes = 0
+        self._bounces = 0
         self._puck.health = 100
         self._puck.pos = (0, 0)
+        self._puck.velocity = (0, 0)
         self._restarted = 1
 
     def run(self: Self) -> None:
@@ -156,6 +175,8 @@ class Game(object):
                     elif (event.type == pg.MOUSEBUTTONUP
                         and can_launch
                         and not self._restarted):
+                        self._strokes += 1
+                        self._puck.health -= 5
                         self._puck.velocity = (
                             vector * 0.1 if vector else pg.Vector2(0, 0)
                         )
@@ -185,9 +206,17 @@ class Game(object):
                 # Update
                 self._level.update(rel_game_speed)
                 self._camera.update(rel_game_speed, self._puck.pos)
-
+                
+                if self._puck.bounced:
+                    self._bounces += 1
+                    sound = self._sounds['bounce']
+                    sound.set_volume(self._puck.speed * 0.8)
+                    sound.play()
                 if self._puck.dead:
                     self._state = 'dead'
+                    self._widgets['strokes'].text = f'Strokes: {self._strokes}'
+                    self._widgets['bounces'].text = f'Bounces: {self._bounces}'
+                    self._sounds['die'].play()
 
                 # Render 
                 self._camera.render(self._surface)
@@ -213,21 +242,29 @@ class Game(object):
                         end_pos,
                         size,
                     )
-                if can_launch:
+                ## HUD
+                offset = (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1])
+                surf = gen_text_surf(self._font, str(self._puck.health))
+                self._surface.blit(surf, offset)
+                if can_launch: # Launch Indicator
+                    surf = pg.transform.scale(
+                        self._images['launch']['can'],
+                        [self._camera.zoom * 2] * 2,
+                    )
                     self._surface.blit(
-                        pg.transform.scale(
-                            self._images['launch']['can'],
-                            [self._camera.zoom * 2] * 2,
-                        ),
-                        (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
+                        surf,
+                        (self._SURF_SIZE[0] - offset[0] - surf.width,
+                         offset[1]),
                     )
                 else:
+                    surf = pg.transform.scale(
+                        self._images['launch']['cant'],
+                        [self._camera.zoom * 2] * 2,
+                    )
                     self._surface.blit(
-                        pg.transform.scale(
-                            self._images['launch']['cant'],
-                            [self._camera.zoom * 2] * 2,
-                        ),
-                        (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1]),
+                        surf,
+                        (self._SURF_SIZE[0] - offset[0] - surf.width,
+                         offset[1]),
                     )
 
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)

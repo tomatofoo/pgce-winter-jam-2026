@@ -3,6 +3,8 @@ from typing import Callable
 
 import pygame as pg
 
+from modules.utils import gen_text_surf
+
 
 # POS IS CENTER POS
 class Widget(object):
@@ -60,18 +62,7 @@ class Text(Widget):
     @text.setter
     def text(self: Self, value: str) -> None:
         self._text = value
-        size = self._font.size(value)
-        self._surf = pg.Surface((size[0], size[1] + 2))
-        self._surf.set_colorkey((0, 0, 0))
-        if self._dropshadow:
-            self._surf.blit(
-                self._font.render(self._text, 0, (51, 51, 51)),
-                (0, 2),
-            )
-        self._surf.blit(
-            self._font.render(self._text, 0, (255, 255, 255)),
-            (0, 0),
-        )
+        self._surf = gen_text_surf(self._font, self._text, self._dropshadow)
 
     @property
     def dropshadow(self: Self) -> bool:

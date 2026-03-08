@@ -12,11 +12,11 @@ from modules.level import Level
 class Camera(object):
     def __init__(self: Self,
                  level: Level,
-                 pos: pg.Vector2,
+                 pos: pg.Vector2=(0, 0),
                  zoom: int=16,
                  flatness: Real=36): # -1 for perfect flat
         self._level = level
-        self._pos = pos
+        self.pos = pos
         self._zoom = zoom
         self._flatness = flatness
 
@@ -30,11 +30,11 @@ class Camera(object):
 
     @property
     def pos(self: Self) -> pg.Vector2:
-        return self._pos
+        return self._pos.copy()
 
     @pos.setter
     def pos(self: Self, value: pg.Vector2) -> None:
-        self._pos = value
+        self._pos = pg.Vector2(value)
 
     @property
     def zoom(self: Self) -> int:
@@ -163,5 +163,4 @@ class Camera(object):
                 particle._pos - [particle._radius] * 2, surf.size,
             )
             surf.blit(texture, pos)
-
 

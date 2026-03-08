@@ -53,25 +53,33 @@ def get_line_y(line: tuple[Point], x: Real) -> Real:
     t = (x - point0[0]) / difference if difference else 0.5
     return pg.math.lerp(point0[1], point1[1], t)
 
+def gen_text_surf(font: pg.Font, text: str, dropshadow: bool=1) -> pg.Surface:
+    size = font.size(text)
+    surf = pg.Surface((size[0], size[1] + 2))
+    surf.set_colorkey((0, 0, 0))
+    if dropshadow:
+        surf.blit(font.render(text, 0, (51, 51, 51)), (0, 2))
+    surf.blit(font.render(text, 0, (255, 255, 255)), (0, 0))
+    return surf
+
 def gen_text_button_surf(font: pg.Font,
                          text: str,
                          bgcolor: ColorLike,
                          olcolor: ColorLike=(255, 255, 255),
                          olwidth: int=2,
                          padding: int=8,
-                         dropshadow: bool=1) -> None:
+                         dropshadow: bool=1) -> pg.Surface:
 
-    normal = font.render(text, 0, (255, 255, 255))
+    size = font.size(text)
     offset = 2 * dropshadow
     surf = pg.Surface((
-        normal.width + padding * 2 + offset,
-        normal.height + padding * 2 + offset,
+        size[0] + padding * 2 + offset,
+        size[1] + padding * 2 + offset,
     ))
     surf.fill(bgcolor)
     pg.draw.rect(surf, olcolor, (0, 0, surf.width, surf.height), olwidth)
-    if dropshadow:
-        surf.blit(font.render(text, 0, (51, 51, 51)), (padding, padding + 2))
-    surf.blit(normal, (padding, padding))
+    surf.blit(gen_text_surf(font, text, dropshadow), (padding, padding))
+
 
     return surf
 

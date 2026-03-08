@@ -146,7 +146,7 @@ class Entity(object):
 
     @health.setter
     def health(self: Self, value: int) -> None:
-        self._health = value
+        self._health = max(value, 0)
 
     @property
     def velocity(self: Self) -> pg.Vector2:
@@ -231,9 +231,7 @@ class Puck(Entity):
                  pos: Point=(0, 0),
                  width: Real=1,
                  render_width: Optional[Real]=None,
-                 health: int=100,
-                 bounce_sound: Optional[mx.Sound]=None,
-                 die_sound: Optional[mx.Sound]=None):
+                 health: int=100):
 
         super().__init__(
             surf=surfs[0],
@@ -242,14 +240,9 @@ class Puck(Entity):
             render_width=render_width,
         )
         self._surfs = surfs
-        self._surf_dex = 0
         self._health = health
         self._max_health = health
-
-        self._sounds = {
-            'bounce': bounce_sound,
-            'die': die_sound,
-        }
+        self._bounced = 0
 
     @property
     def surfs(self: Self) -> tuple[pg.Surface]:
@@ -260,20 +253,8 @@ class Puck(Entity):
         self._surfs = value
 
     @property
-    def bounce_sound(self: Self) -> Optional[mx.Sound]:
-        return self._sounds['bounce']
-
-    @bounce_sound.setter
-    def bounce_sound(self: Self, value: Optional[mx.Sound]) -> None:
-        self._sounds['bounce'] = value
-
-    @property
-    def die_sound(self: Self) -> Optional[mx.Sound]:
-        return self._sounds['die']
-
-    @die_sound.setter
-    def die_sound(self: Self, value: Optional[mx.Sound]) -> None:
-        self._sounds['die'] = value
+    def bounced(self: Self) -> bool: # if bounced in last update
+        return self._bounced
 
     def _bounce(self: Self,
                 line: tuple[Point],
@@ -292,7 +273,7 @@ class Puck(Entity):
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
         initial = self._velocity.copy()
-        bounced = 0
+        self._bounced = 0
 
         self._pos[0] += initial[0] * rel_game_speed
         entity_rect = self.rect(scale)
@@ -307,18 +288,17 @@ class Puck(Entity):
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) - 1
-                    bounced = 1
+                    self._bounced = 1
                 elif initial[0] < 0:
                     entity_rect.left = max(
                         get_line_x(line, entity_rect.top),
                         get_line_x(line, entity_rect.bottom),
                     ) + 1
-                    bounced = 1
+                    self._bounced = 1
 
                 # angle would be same so don't need to scale down line
                 self._bounce(line, initial.angle)
                 self._pos[0] = entity_rect.centerx / scale
-                self._health = max(self._health - 1, 0)
         
         self._pos[1] += initial[1] * rel_game_speed
         entity_rect = self.rect(scale)
@@ -329,39 +309,28 @@ class Puck(Entity):
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right),
                     ) - 1
-                    bounced = 1
+                    self._bounced = 1
                 elif initial[1] < 0:
                     entity_rect.top = max(
                         get_line_y(line, entity_rect.left),
                         get_line_y(line, entity_rect.right), 
                     ) + 1
-                    bounced = 1
+                    self._bounced = 1
 
                 self._bounce(line, initial.angle)
                 self._pos[1] = entity_rect.centery / scale
-                self._health = max(self._health - 1, 0)
+        self._health = max(self._health - self._bounced, 0)
 
         if self._velocity.magnitude() > SMALL:
             self._velocity *= 0.98**rel_game_speed
         else:
             self._velocity.update(0, 0)
         
-        if self.dead:
-            sound = self._sounds['die']
-            if self._surf_dex < len(self._surfs) and sound is not None:
-                sound.play()
-                self._surf_dex = len(self._surfs)
-        else:
+        if not self.dead:
             surf_dex = int(math.floor(
                 (1 - (self._health / self._max_health)) * len(self._surfs)
             ))
             self._surf = self._surfs[surf_dex]
-
-        # Sounds
-        sound = self._sounds['bounce']
-        if bounced and sound is not None:
-            sound.set_volume(self._velocity.magnitude() * 0.8)
-            sound.play()
 
 
 class Level(object):
