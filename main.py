@@ -103,7 +103,7 @@ class Game(object):
         self._camera = Camera(self._level)
         
         # Menus
-        self._widgets = {
+        self._dead_widgets = {
             'strokes': Text(
                 self._font,
                 f'Strokes: {self._strokes}',
@@ -121,8 +121,8 @@ class Game(object):
                 'YOU CRACKED!',
                 (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
             ),
-            self._widgets['strokes'],
-            self._widgets['bounces'],
+            self._dead_widgets['strokes'],
+            self._dead_widgets['bounces'],
             Button(
                 gen_text_button_surf(self._font, 'Restart', (255, 0, 0)),
                 (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
@@ -214,8 +214,11 @@ class Game(object):
                     sound.play()
                 if self._puck.dead:
                     self._state = 'dead'
-                    self._widgets['strokes'].text = f'Strokes: {self._strokes}'
-                    self._widgets['bounces'].text = f'Bounces: {self._bounces}'
+                    self._dead_widgets['strokes'].text = (
+                        f'Strokes: {self._strokes}'
+                    )
+                    self._dead_widgets['bounces'].text = (
+                        f'Bounces: {self._bounces}'
                     self._sounds['die'].play()
 
                 # Render 

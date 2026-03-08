@@ -333,15 +333,25 @@ class Puck(Entity):
             self._surf = self._surfs[surf_dex]
 
 
+class Special(object): # must be deepcopied per level
+    def __init__(self: Self) -> None:
+        self._tiles = {} # tiles and data
+
+    def update(rel_game_speed: Real, data: dict) -> dict:
+        return data
+
+
 class Level(object):
     def __init__(self: Self,
                  entities: set[Entity],
                  tilemap: dict,
-                 textures: tuple[pg.Surface]):
+                 specials: dict[str, Special]={},
+                 textures: tuple[pg.Surface]=[pg.Surface((1, 1))]):
         self._entities = set()
         self.entities = entities
         self._particles = set()
         self._tilemap = tilemap
+        self.specials = specials
         self._textures = textures
 
     @property
@@ -363,6 +373,24 @@ class Level(object):
     @tilemap.setter
     def tilemap(self: Self, value: dict) -> None:
         self._tilemap = value
+        self.specials = self._special_key
+
+    @property
+    def specials(self: Self) -> dict[str, Special]:
+        return self._special_key
+
+    @specials.setter
+    def specials(self: Self, value: dict[str, Special]) -> None:
+        self._special_key = value
+        for key, value in self._tilemap.items():
+            special_type = value['type']
+            if special_type != 'normal':
+                special = self._special_key[special_type]
+                keys = self._specials.get(special)
+                if keys is None:
+                    self._specials[special] = []
+                    keys = self._specials[special]
+                keys.append(key)
 
     @property
     def textures(self: Self) -> tuple[pg.Surface]:
@@ -399,6 +427,13 @@ class Level(object):
         # Entities
         for entity in self._entities:
             entity.update(rel_game_speed)
+
+        # Specials
+        for special, key in self._specials.items():
+            for key in tiles:
+                self._tilemap[key] = special.update(
+                    rel_game_speed, self._tilemap[key],
+                )
         
         # Particles
         dead = set()
