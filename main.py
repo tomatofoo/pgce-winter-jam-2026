@@ -44,15 +44,15 @@ class Game(object):
         }
         self._screen = pg.display.set_mode(
             self._SCREEN_SIZE,
-            flags=self._SCREEN_FLAGS,
-            vsync=self._settings['vsync']
+            flags=self._SCREEN_FLAGS, # flags don't really work in pygbag
+            vsync=self._settings['vsync'], # not sure about vsync in pygbag
         )
         pg.display.set_caption('Icebox')
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
         self._level_timer = 0
     
-        self._state = 'alive' # alive, dead, win, finish
+        self._state = 'tutorial' # tutorial, alive, dead, win, finish
         self._restarted = 0
         self._strokes = 0
         self._bounces = 0
@@ -87,6 +87,7 @@ class Game(object):
                 load_img('specials', 'boost_down.png'),
                 load_img('specials', 'boost_left.png'),
                 load_img('specials', 'boost_right.png'),
+                load_img('specials', 'end.png'),
             )
         }
         self._sounds = {
@@ -102,7 +103,7 @@ class Game(object):
         # health amounts for each level
         # Also used to determine number of levels
         self._health = (
-            100,
+            20,
         )
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
@@ -250,6 +251,8 @@ class Game(object):
                 else:
                     if event.type == pg.MOUSEBUTTONDOWN:
                         self._restarted = 0
+                        if self._state == 'tutorial':
+                            self._state = 'alive'
                     elif (event.type == pg.MOUSEBUTTONUP
                         and can_launch
                         and not self._restarted):
@@ -261,6 +264,9 @@ class Game(object):
                         sound = self._sounds['launch']
                         sound.set_volume(vector.magnitude())
                         sound.play()
+                    elif event.type == pg.KEYDOWN:
+                        if event.key == pg.K_r:
+                            self._restart()
             
             if self._state == 'dead':
                 # Update
@@ -275,7 +281,7 @@ class Game(object):
                 # Update
                 self._level.update(rel_game_speed)
                 self._camera.update(rel_game_speed, self._puck.pos)
-                
+
                 if self._puck.bounced:
                     self._bounces += 1
                     sound = self._sounds['bounce']
@@ -348,6 +354,22 @@ class Game(object):
                         surf,
                         (self._SURF_SIZE[0] - offset[0] - surf.width,
                          offset[1]),
+                    )
+                if self._state == 'tutorial': # MAYBE REMOVE THIS
+                    offset = (
+                        (self._level_timer % 60 > 30) * self._camera.zoom / 8
+                    )
+                    surf = gen_text_surf(self._font, 'Stroke: -5')
+                    self._surface.blit(
+                        surf,
+                        ((self._SURF_SIZE[0] - surf.width) / 2,
+                         self._SURF_SIZE[1] * 0.3 + offset)
+                    )
+                    surf = gen_text_surf(self._font, 'Bounce: -1')
+                    self._surface.blit(
+                        surf,
+                        ((self._SURF_SIZE[0] - surf.width) / 2,
+                         self._SURF_SIZE[1] * 0.425 + offset)
                     )
 
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)

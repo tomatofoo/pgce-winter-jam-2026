@@ -71,6 +71,7 @@ class Game(object):
             load_img('specials', 'boost_down.png'),
             load_img('specials', 'boost_left.png'),
             load_img('specials', 'boost_right.png'),
+            load_img('specials', 'end.png'),
         ]
         self._lines = [
             (((0, 0), (1, 0)), # SQUARE
