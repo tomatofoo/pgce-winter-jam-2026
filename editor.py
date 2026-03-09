@@ -75,23 +75,25 @@ class Game(object):
             load_img('specials', 'end.png'),
         ]
         self._lines = [
-            (((0, 0), (1, 0)), # SQUARE
-             ((1, 0), (1, 1)),
-             ((1, 1), (0, 1)),
-             ((0, 1), (0, 0))),
-            tuple(),           # EMPTY
-            (((0, 0), (0, 1)), # TRIANGLE1
-             ((0, 1), (1, 1)),
-             ((1, 1), (0, 0))),
-            (((0, 1), (1, 1)), # TRIANGLE2
-             ((1, 1), (1, 0)),
-             ((1, 0), (0, 1))),
-            (((1, 1), (1, 0)), # TRIANGLE3
-             ((1, 0), (0, 0)),
-             ((0, 0), (1, 1))),
-            (((1, 0), (0, 0)), # TRIANGLE4
-             ((0, 0), (0, 1)),
-             ((0, 1), (1, 0))),
+            # has to be lists because that's how json stores it
+            # eyedropper tool will not work if it is tuples
+            [[[0, 0], [1, 0]], # SQUARE
+             [[1, 0], [1, 1]],
+             [[1, 1], [0, 1]],
+             [[0, 1], [0, 0]]],
+            [],           # EMPTY
+            [[[0, 0], [0, 1]], # TRIANGLE1
+             [[0, 1], [1, 1]],
+             [[1, 1], [0, 0]]],
+            [[[0, 1], [1, 1]], # TRIANGLE2
+             [[1, 1], [1, 0]],
+             [[1, 0], [0, 1]]],
+            [[[1, 1], [1, 0]], # TRIANGLE3
+             [[1, 0], [0, 0]],
+             [[0, 0], [1, 1]]],
+            [[[1, 0], [0, 0]], # TRIANGLE4
+             [[0, 0], [0, 1]],
+             [[0, 1], [1, 0]]],
         ]
         self._types = [
             'normal',
@@ -356,6 +358,10 @@ class Game(object):
                 elif self._tool == 'eyedropper':
                     try:
                         self._data = copy.deepcopy(self._tilemap[key])
+                        self._lines_dex = self._lines.index(
+                            self._data['lines'],
+                        )
+                        self._type_dex = self._types.index(self._data['type'])
                     except KeyError:
                         pass
             

@@ -91,6 +91,8 @@ class Entity(object):
         self._pos = pg.Vector2(pos)
         self._width = width
         self.render_width = render_width
+        self._health = health
+        self._max_health = health
         self._velocity = pg.Vector2(0, 0)
         self._boost = pg.Vector2(0, 0)
 
@@ -151,6 +153,14 @@ class Entity(object):
     @health.setter
     def health(self: Self, value: int) -> None:
         self._health = max(value, 0)
+
+    @property
+    def max_health(self: Self) -> int:
+        return self._max_health
+
+    @max_health.setter
+    def max_health(self: Self, value: int) -> None:
+        self._max_health = max(value, 0)
 
     @property
     def velocity(self: Self) -> pg.Vector2:
@@ -313,10 +323,9 @@ class Puck(Entity):
             pos=pos,
             width=width,
             render_width=render_width,
+            health=health,
         )
         self._surfs = surfs
-        self._health = health
-        self._max_health = health
         self._bounced = 0
 
     @property

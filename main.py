@@ -106,7 +106,8 @@ class Game(object):
         # Also used to determine number of levels
         self._health = (
             20,
-        )
+            100,
+       )
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
             'boost_down': Boost('down', sound=self._sounds['boost']),
@@ -199,6 +200,7 @@ class Game(object):
         self._strokes = 0
         self._bounces = 0
         self._puck.health = self._health[self._level_dex]
+        self._puck.max_health = self._health[self._level_dex]
         self._puck.pos = (0, 0)
         self._puck.velocity = (0, 0)
         self._puck.boost = (0, 0)
