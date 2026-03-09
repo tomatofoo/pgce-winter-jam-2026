@@ -98,9 +98,19 @@ class Game(object):
         }
         
         # Game Stuff
-        self._health = ( # health amounts for each level
+        ## Data
+        # health amounts for each level
+        # Also used to determine number of levels
+        self._health = (
             100,
         )
+        self._specials = {
+            'boost_up': Boost('up', sound=self._sounds['boost']),
+            'boost_down': Boost('down', sound=self._sounds['boost']),
+            'boost_left': Boost('left', sound=self._sounds['boost']),
+            'boost_right': Boost('right', sound=self._sounds['boost']),
+            'end': End(),
+        }
         self._level_number = 0
         self._puck = Puck(
             surfs=self._images['puck'],
@@ -111,14 +121,8 @@ class Game(object):
         self._level = Level(
             entities={self._puck},
             tilemap=load_tilemap(self._level_number),
-            specials={
-                'boost_up': Boost('up', sound=self._sounds['boost']),
-                'boost_down': Boost('down', sound=self._sounds['boost']),
-                'boost_left': Boost('left', sound=self._sounds['boost']),
-                'boost_right': Boost('right', sound=self._sounds['boost']),
-                'end': End(),
-            },
-            textures=self._images['textures']
+            specials=self._specials,
+            textures=self._images['textures'],
         )
         self._camera = Camera(self._level)
         
@@ -184,10 +188,11 @@ class Game(object):
         self._state = 'alive'
         self._strokes = 0
         self._bounces = 0
-        self._puck.health = 100
+        self._puck.health = self._health[self._level_number]
         self._puck.pos = (0, 0)
         self._puck.velocity = (0, 0)
         self._puck.boost = (0, 0)
+        self._level.tilemap = load_tilemap(self._level_number)
         self._restarted = 1
         self._sounds['start'].play()
 
