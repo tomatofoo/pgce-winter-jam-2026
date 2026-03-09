@@ -374,13 +374,13 @@ class Game(object):
                     offset = (
                         (self._level_timer % 60 > 30) * self._camera.zoom / 8
                     )
-                    surf = gen_text_surf(self._font, 'Stroke: -5')
+                    surf = gen_text_surf(self._font, 'Stroke is -5')
                     self._surface.blit(
                         surf,
                         ((self._SURF_SIZE[0] - surf.width) / 2,
                          self._SURF_SIZE[1] * 0.3 + offset)
                     )
-                    surf = gen_text_surf(self._font, 'Bounce: -1')
+                    surf = gen_text_surf(self._font, 'Bounce is -1')
                     self._surface.blit(
                         surf,
                         ((self._SURF_SIZE[0] - surf.width) / 2,
