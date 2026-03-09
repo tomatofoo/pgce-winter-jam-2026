@@ -72,7 +72,7 @@ class Game(object):
             load_img('specials', 'boost_left.png'),
             load_img('specials', 'boost_right.png'),
             load_img('specials', 'damage.png'),
-            load_img('specials', 'end.png'),
+            load_img('specials', 'win.png'),
         ]
         self._lines = [
             # has to be lists because that's how json stores it
@@ -97,7 +97,7 @@ class Game(object):
         ]
         self._types = [
             'normal',
-            'end',
+            'win',
             'damage',
             'boost_up',
             'boost_down',
@@ -167,20 +167,20 @@ class Game(object):
                 self._textures[data['texture']], (size, size),
             )
             tile_type = data['type']
-            if tile_type == 'end':
+            if tile_type == 'win':
                 pg.draw.rect(
                     surf,
                     (0, 255, 0),
                     (0, 0, size / 2, size / 2),
                     3,
                 )
-            elif tile_type == 'boostleft':
+            elif tile_type == 'boost_up':
                 pass
-            elif tile_type == 'boostright':
+            elif tile_type == 'boost_down':
                 pass
-            elif tile_type == 'boostup':
+            elif tile_type == 'boost_left':
                 pass
-            elif tile_type == 'boostdown':
+            elif tile_type == 'boost_right':
                 pass
             surf.set_alpha(alpha)
             self._screen.blit(surf, pos)

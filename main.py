@@ -18,7 +18,7 @@ from modules.utils import gen_text_surf
 from modules.utils import gen_text_button_surf
 from modules.level import Puck
 from modules.level import Boost
-from modules.level import End
+from modules.level import Win
 from modules.level import Level
 from modules.camera import Camera
 from modules.menu import Text
@@ -75,6 +75,7 @@ class Game(object):
                 load_img('puck', '8.png'),
                 load_img('puck', '9.png'),
                 load_img('puck', '10.png'),
+                load_img('puck', 'dead.png'),
             ),
             'textures': (
                 load_img('backgrounds', '1.png'),
@@ -88,7 +89,7 @@ class Game(object):
                 load_img('specials', 'boost_left.png'),
                 load_img('specials', 'boost_right.png'),
                 load_img('specials', 'damage.png'),
-                load_img('specials', 'end.png'),
+                load_img('specials', 'win.png'),
             )
         }
         self._sounds = {
@@ -114,11 +115,11 @@ class Game(object):
             'boost_left': Boost('left', sound=self._sounds['boost']),
             'boost_right': Boost('right', sound=self._sounds['boost']),
             'damage': None,
-            'end': End(),
+            'win': Win(),
         }
         self._level_dex = 0
         self._puck = Puck(
-            surfs=self._images['puck'],
+            surfs=self._images['puck'][:-1],
             width=0.9,
             render_width=1,
             health=self._health[self._level_dex],
@@ -135,65 +136,68 @@ class Game(object):
         self._init_menus()
 
     def _init_menus(self: Self) -> None:
-        self._dead_widgets = {
-            'strokes': Text(
-                self._font,
-                f'Strokes: {self._strokes}',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
-            ),
-            'bounces': Text(
-                self._font,
-                f'Bounces: {self._bounces}',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
-            ),
+        self._widgets = {
+            'dead': {
+                'strokes': Text(
+                    self._font,
+                    f'Strokes: {self._strokes}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+                ),
+                'bounces': Text(
+                    self._font,
+                    f'Bounces: {self._bounces}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+                ),
+            },
+            'win': {
+                'strokes': Text(
+                    self._font,
+                    f'Strokes: {self._strokes}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+                ),
+                'bounces': Text(
+                    self._font,
+                    f'Bounces: {self._bounces}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+                ),
+                'spare': Text(
+                    self._font,
+                    f'Spare: {self._puck.health}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
+                ),
+            },
         }
-        self._dead_menu = Menu({
-            Text(
-                self._font,
-                'YOU CRACKED!',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
-            ),
-            self._dead_widgets['strokes'],
-            self._dead_widgets['bounces'],
-            Button(
-                gen_text_button_surf(self._font, 'Restart', (255, 0, 0)),
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
-                self._restart,
-            )
-        })
-
-        self._win_widgets = {
-            'strokes': Text(
-                self._font,
-                f'Strokes: {self._strokes}',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
-            ),
-            'bounces': Text(
-                self._font,
-                f'Bounces: {self._bounces}',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
-            ),
-            'spare': Text(
-                self._font,
-                f'Spare: {self._puck.health}',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
-            ),
+        self._menus = {
+            'dead': Menu({
+                Text(
+                    self._font,
+                    'YOU SHATTERED!',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
+                ),
+                self._widgets['dead']['strokes'],
+                self._widgets['dead']['bounces'],
+                Button(
+                    gen_text_button_surf(self._font, 'Restart', (255, 0, 0)),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                    self._restart,
+                )
+            }),
+            'win': Menu({
+                Text(
+                    self._font,
+                    'YOU BEAT THE LEVEL!',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
+                ),
+                self._widgets['win']['strokes'],
+                self._widgets['win']['bounces'],
+                self._widgets['win']['spare'],
+                Button(
+                    gen_text_button_surf(self._font, 'Next Level', (255, 0, 0)),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                    self._next_level,
+                )
+            })
         }
-        self._win_menu = Menu({
-            Text(
-                self._font,
-                'YOU BEAT THE LEVEL!',
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
-            ),
-            self._win_widgets['strokes'],
-            self._win_widgets['bounces'],
-            self._win_widgets['spare'],
-            Button(
-                gen_text_button_surf(self._font, 'Next Level', (255, 0, 0)),
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
-                self._next_level,
-            )
-        })
 
     def _restart(self: Self) -> None:
         self._state = 'alive'
@@ -224,6 +228,22 @@ class Game(object):
             for y in range(-1, int(self._SURF_SIZE[1] / bg.height) + 1):
                 for x in range(-1, int(self._SURF_SIZE[0] / bg.width) + 1):
                     self._surface.blit(bg, (x * size, y * size) + offset)
+
+    def _render_transition(self: Self, timer: Real, time: Real) -> None:
+        if 0 <= timer <= time:
+            surf = pg.Surface(self._SURF_SIZE)
+            surf.set_colorkey((255, 255, 255))
+            pg.draw.circle(
+                surf,
+                (255, 255, 255),
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] / 2),
+                abs(pg.math.smoothstep(-0.5, 0.5, timer / time))
+                * pg.Vector2(self._SURF_SIZE).magnitude() + 2,
+            )
+            self._surface.blit(surf, (0, 0))
+
+    def _end(self: Self) -> None:
+        pass
 
     def run(self: Self) -> None:
         self._running = 1
@@ -256,9 +276,9 @@ class Game(object):
                 if event.type == pg.QUIT:
                     self._running = 0
                 elif self._state == 'dead':
-                    self._dead_menu.handle_event(event)
+                    self._menu['dead'].handle_event(event)
                 elif self._state == 'win':
-                    self._win_menu.handle_event(event)
+                    self._menus['win'].handle_event(event)
                 else:
                     if event.type == pg.MOUSEBUTTONDOWN:
                         self._restarted = 0
@@ -278,17 +298,43 @@ class Game(object):
                     elif event.type == pg.KEYDOWN:
                         if event.key == pg.K_r:
                             self._restart()
-            
+           
             if self._state == 'dead':
-                # Update
-                self._dead_menu.update(rel_game_speed, mouse_pos, mouse)
-                self._render_menu_bg()
-                self._dead_menu.render(self._surface)
+                if self._puck.net_speed > SMALL:
+                    self._level_timer = 0
+                    self._level.update(rel_game_speed)
+                    self._puck.velocity *= 0.9**rel_game_speed
+                    self._puck.autosurf = 0
+                    self._puck.surf = self._images['puck'][10]
+                    self._camera.update(rel_game_speed, self._puck.pos)
+                    self._camera.render(self._surface)
+                else:
+                    if self._level_timer >= 30:
+                        self._menu['dead'].update(rel_game_speed, mouse_pos, mouse)
+                        self._render_menu_bg()
+                        self._menu['dead'].render(self._surface)
+                    else:
+                        self._camera.update(rel_game_speed, self._puck.pos)
+                        self._camera.render(self._surface)
+                    self._render_transition(self._level_timer, 60)
             elif self._state == 'win':
-                self._win_menu.update(rel_game_speed, mouse_pos, mouse)
-                self._render_menu_bg()
-                self._win_menu.render(self._surface)
+                if self._puck.net_speed > SMALL:
+                    self._level_timer = 0
+                    self._level.update(rel_game_speed)
+                    self._puck.velocity *= 0.9**rel_game_speed
+                    self._camera.update(rel_game_speed, self._puck.pos)
+                    self._camera.render(self._surface)
+                else:
+                    if self._level_timer >= 30:
+                        self._menus['win'].update(rel_game_speed, mouse_pos, mouse)
+                        self._render_menu_bg()
+                        self._menus['win'].render(self._surface)
+                    else:
+                        self._camera.update(rel_game_speed, self._puck.pos)
+                        self._camera.render(self._surface)
+                    self._render_transition(self._level_timer, 60)
             else:
+                self._puck.autosurf = 1
                 # Update
                 self._level.update(rel_game_speed)
                 self._camera.update(rel_game_speed, self._puck.pos)
@@ -298,28 +344,28 @@ class Game(object):
                     sound = self._sounds['bounce']
                     sound.set_volume(self._puck.net_speed * 0.8)
                     sound.play()
-                if self._level.specials['end'].touched:
+                if self._level.specials['win'].touched:
                     # if level before end
                     if self._level_dex > len(self._health) - 2:
                         self._state = 'finish'
                     else:
                         self._state = 'win'
-                        self._win_widgets['strokes'].text = (
+                        self._widgets['win']['strokes'].text = (
                             f'Strokes: {self._strokes}'
                         )
-                        self._win_widgets['bounces'].text = (
+                        self._widgets['win']['bounces'].text = (
                             f'Bounces: {self._bounces}'
                         )
-                        self._win_widgets['spare'].text = (
+                        self._widgets['win']['spare'].text = (
                             f'Spare: {self._puck.health}'
                         )
                         self._sounds['win'].play()
                 elif self._puck.dead:
                     self._state = 'dead'
-                    self._dead_widgets['strokes'].text = (
+                    self._widgets['dead']['strokes'].text = (
                         f'Strokes: {self._strokes}'
                     )
-                    self._dead_widgets['bounces'].text = (
+                    self._widgets['dead']['bounces'].text = (
                         f'Bounces: {self._bounces}'
                     )
                     self._sounds['die'].play()

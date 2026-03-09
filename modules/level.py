@@ -313,11 +313,13 @@ class Entity(object):
 class Puck(Entity):
     def __init__(self: Self,
                  surfs: tuple[pg.Surface],
+                 autosurf: bool=1,
                  pos: Point=(0, 0),
                  width: Real=1,
                  render_width: Optional[Real]=None,
                  health: int=100):
 
+        # autosurf is automatically calculate surf from surfs using health
         super().__init__(
             surf=surfs[0],
             pos=pos,
@@ -326,6 +328,7 @@ class Puck(Entity):
             health=health,
         )
         self._surfs = surfs
+        self._autosurf = autosurf
         self._bounced = 0
 
     @property
@@ -335,6 +338,14 @@ class Puck(Entity):
     @surfs.setter
     def surfs(self: Self, value: tuple[pg.Surface]) -> None:
         self._surfs = value
+
+    @property
+    def autosurf(self: Self) -> bool:
+        return self._autosurf
+    
+    @autosurf.setter
+    def autosurf(self: Self, value: bool) -> None:
+        self._autosurf = value
 
     @property
     def bounced(self: Self) -> bool: # if bounced in last update
@@ -433,7 +444,7 @@ class Puck(Entity):
         else:  
             self._boost.update(0, 0)
         
-        if not self.dead:
+        if self._autosurf and not self.dead:
             surf_dex = int(math.floor(
                 (1 - (self._health / self._max_health)) * len(self._surfs)
             ))
@@ -548,7 +559,7 @@ class Boost(Special):
         self._boosts = set()
 
 
-class End(Special):
+class Win(Special):
     def __init__(self: Self, bounce: bool=0) -> None:
         super().__init__(bounce)
         self._touched = None
