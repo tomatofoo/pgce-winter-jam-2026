@@ -236,7 +236,6 @@ class Entity(object):
 
     def _get_special_rects_around(
         self: Self,
-        pos: pg.Vector2
     ) -> list[tuple[Special, pg.Rect, dict]]:
         rects = []
         for offset in self._TILE_OFFSETS:
@@ -255,13 +254,6 @@ class Entity(object):
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
         velocity = self._velocity + self._boost
-
-        pos = self._pos + velocity * rel_game_speed
-        entity_rect = pg.FRect(0, 0, self._width, self._width)
-        entity_rect.center = pos
-        for special, rect, data in self._get_special_rects_around(pos):
-            if entity_rect.colliderect(rect):
-                special.interact(self, data)
 
         bounced = (None, None) # special, data
 
@@ -300,6 +292,11 @@ class Entity(object):
                     ) + 1
                     bounced = (special, data)
                 self._pos[1] = entity_rect.centery / scale
+
+        entity_rect = self.rect()
+        for special, rect, data in self._get_special_rects_around():
+            if entity_rect.colliderect(rect):
+                special.interact(self, data)
 
         if bounced[0] is not None:
             bounced[0].interact(self, bounced[1])
@@ -369,13 +366,6 @@ class Puck(Entity):
         velocity = self._velocity + self._boost
         self._bounced = 0
 
-        pos = self._pos + velocity * rel_game_speed
-        entity_rect = pg.FRect(0, 0, self._width, self._width)
-        entity_rect.center = pos
-        for special, rect, data in self._get_special_rects_around(pos):
-            if entity_rect.colliderect(rect):
-                special.interact(self, data)
-
         bounced = (None, None) # special, data
 
         self._pos[0] += velocity[0] * rel_game_speed
@@ -429,6 +419,11 @@ class Puck(Entity):
                 self._bounce(line, initial_boost.angle, self._boost)
                 self._pos[1] = entity_rect.centery / scale
 
+        entity_rect = self.rect()
+        for special, rect, data in self._get_special_rects_around():
+            if entity_rect.colliderect(rect):
+                special.interact(self, data)
+
         if bounced[0] is not None:
             bounced[0].interact(self, bounced[1])
 
@@ -463,6 +458,9 @@ class Special(object): # must be deepcopied per level
     @bounce.setter
     def bounce(self: Self, value: bool) -> None:
         self._bounce = value
+
+    def reset(self: Self) -> None:
+        pass
 
     def interact(self: Self, entity: Entity, data: dict) -> None:
         pass
@@ -526,6 +524,11 @@ class Boost(Special):
     def sound(self: Self, value: Optional[mx.Sound]) -> None:
         self._sound = value
 
+    def reset(self: Self) -> None:
+        self._boosts = set()
+        self._last_boosts = self._boosts
+        self._particles = set()
+
     def interact(self: Self, entity: Entity, data: dict) -> None:
         boost = (entity, id(data))
         self._boosts.add(boost)
@@ -568,6 +571,9 @@ class Win(Special):
     def touched(self: Self) -> Optional[Entity]:
         return self._touched
 
+    def reset(self: Self) -> None:
+        self._touched = None
+
     def interact(self: Self, entity: Entity, data: dict) -> None:
         self._touched = entity
 
@@ -581,6 +587,7 @@ class Level(object):
         self._entities = set()
         self.entities = entities
         self._particles = set()
+        self._specials = {}
         self._tilemap = tilemap
         self.specials = specials
         self._textures = textures
@@ -604,6 +611,8 @@ class Level(object):
     @tilemap.setter
     def tilemap(self: Self, value: dict) -> None:
         self._tilemap = value
+        for special in self._specials:
+            special.reset()
         self.specials = self._special_key
 
     @property
@@ -656,6 +665,9 @@ class Level(object):
             pos=pos,
             velocity=velocity,
         ))
+
+    def clear_particles(self: Self) -> None:
+        self._particles = set()
 
     def update(self: Self, rel_game_speed: Real) -> None:
         # Entities

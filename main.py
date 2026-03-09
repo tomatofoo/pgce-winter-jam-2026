@@ -2,6 +2,7 @@ import time
 import math
 import random
 from typing import Self
+from typing import Callable
 from numbers import Real
 
 import pygame as pg
@@ -107,8 +108,14 @@ class Game(object):
         # Also used to determine number of levels
         self._health = (
             20,
+            50,
             100,
-       )
+        )
+        self._par = (
+            3,
+            9,
+            100,
+        )
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
             'boost_down': Boost('down', sound=self._sounds['boost']),
@@ -200,16 +207,24 @@ class Game(object):
         }
 
     def _restart(self: Self) -> None:
+        self._level_timer = 0
         self._state = 'alive'
         self._strokes = 0
         self._bounces = 0
+        self._restarted = 1
+
         self._puck.health = self._health[self._level_dex]
         self._puck.max_health = self._health[self._level_dex]
         self._puck.pos = (0, 0)
         self._puck.velocity = (0, 0)
         self._puck.boost = (0, 0)
+        self._level.clear_particles()
         self._level.tilemap = load_tilemap(self._level_dex)
-        self._restarted = 1
+        self._camera.pos = (
+            random.random() * 10 - 5,
+            random.random() * 10 - 5,
+        )
+
         self._sounds['start'].play()
 
     def _next_level(self: Self) -> None:
@@ -242,8 +257,47 @@ class Game(object):
             )
             self._surface.blit(surf, (0, 0))
 
-    def _end(self: Self) -> None:
-        pass
+    def _set_dead_surf(self: Self) -> None:
+        self._puck.autosurf = 0
+        self._puck.surf = self._images['puck'][10]
+
+    def _spawn_particle_at_puck(self: Self) -> None:
+        velocity = (
+            -self._puck.net_velocity
+            .rotate(random.random() * 20 - 10)
+            * random.random()
+        )
+        self._level.spawn_particle(
+            color=(255, 255, 255),
+            radius=0.1,
+            pos=self._puck.pos,
+            velocity = velocity,
+        )
+
+    def _end(self: Self,
+             rel_game_speed: Real,
+             mouse_pos: Point,
+             mouse_pressed: tuple[bool],
+             key: str,
+             func: Callable) -> None:
+        if self._puck.net_speed > SMALL:
+            self._level_timer = 0
+            self._level.update(rel_game_speed)
+            self._puck.velocity *= 0.9**rel_game_speed
+            func()
+            self._camera.update(rel_game_speed, self._puck.pos)
+            self._camera.render(self._surface)
+        else:
+            if self._level_timer >= 30:
+                self._menus[key].update(
+                    rel_game_speed, mouse_pos, mouse_pressed,
+                )
+                self._render_menu_bg()
+                self._menus[key].render(self._surface)
+            else:
+                self._camera.update(rel_game_speed, self._puck.pos)
+                self._camera.render(self._surface)
+            self._render_transition(self._level_timer, 60)
 
     def run(self: Self) -> None:
         self._running = 1
@@ -275,8 +329,11 @@ class Game(object):
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     self._running = 0
+                elif event.type == pg.KEYDOWN:
+                    if event.key == pg.K_r:
+                        self._restart()
                 elif self._state == 'dead':
-                    self._menu['dead'].handle_event(event)
+                    self._menus['dead'].handle_event(event)
                 elif self._state == 'win':
                     self._menus['win'].handle_event(event)
                 else:
@@ -295,44 +352,23 @@ class Game(object):
                         sound = self._sounds['launch']
                         sound.set_volume(vector.magnitude())
                         sound.play()
-                    elif event.type == pg.KEYDOWN:
-                        if event.key == pg.K_r:
-                            self._restart()
            
             if self._state == 'dead':
-                if self._puck.net_speed > SMALL:
-                    self._level_timer = 0
-                    self._level.update(rel_game_speed)
-                    self._puck.velocity *= 0.9**rel_game_speed
-                    self._puck.autosurf = 0
-                    self._puck.surf = self._images['puck'][10]
-                    self._camera.update(rel_game_speed, self._puck.pos)
-                    self._camera.render(self._surface)
-                else:
-                    if self._level_timer >= 30:
-                        self._menu['dead'].update(rel_game_speed, mouse_pos, mouse)
-                        self._render_menu_bg()
-                        self._menu['dead'].render(self._surface)
-                    else:
-                        self._camera.update(rel_game_speed, self._puck.pos)
-                        self._camera.render(self._surface)
-                    self._render_transition(self._level_timer, 60)
+                self._end(
+                    rel_game_speed,
+                    mouse_pos,
+                    mouse,
+                    'dead',
+                    self._set_dead_surf,
+                )
             elif self._state == 'win':
-                if self._puck.net_speed > SMALL:
-                    self._level_timer = 0
-                    self._level.update(rel_game_speed)
-                    self._puck.velocity *= 0.9**rel_game_speed
-                    self._camera.update(rel_game_speed, self._puck.pos)
-                    self._camera.render(self._surface)
-                else:
-                    if self._level_timer >= 30:
-                        self._menus['win'].update(rel_game_speed, mouse_pos, mouse)
-                        self._render_menu_bg()
-                        self._menus['win'].render(self._surface)
-                    else:
-                        self._camera.update(rel_game_speed, self._puck.pos)
-                        self._camera.render(self._surface)
-                    self._render_transition(self._level_timer, 60)
+                self._end(
+                    rel_game_speed,
+                    mouse_pos,
+                    mouse,
+                    'win',
+                    self._spawn_particle_at_puck,
+                )
             else:
                 self._puck.autosurf = 1
                 # Update
@@ -357,7 +393,8 @@ class Game(object):
                             f'Bounces: {self._bounces}'
                         )
                         self._widgets['win']['spare'].text = (
-                            f'Spare: {self._puck.health}'
+                            f'Spare: {self._puck.health} '
+                            f'(Par: {self._par[self._level_dex]})'
                         )
                         self._sounds['win'].play()
                 elif self._puck.dead:
