@@ -1,7 +1,9 @@
 from typing import Self
 from typing import Callable
+from numbers import Real
 
 import pygame as pg
+from pygame.typing import Point
 
 from modules.utils import gen_text_surf
 
@@ -77,7 +79,7 @@ class Text(Widget):
 class Button(Widget):
     def __init__(self: Self,
                  surf: pg.Surface,
-                 pos: Points,
+                 pos: Point,
                  func: Callable=lambda: 1) -> None:
         super().__init__(surf, pos)
         self._original_surf = surf.copy()

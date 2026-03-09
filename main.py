@@ -95,6 +95,7 @@ class Game(object):
             'die': load_sfx('die.mp3'),
             'launch': load_sfx('launch.mp3'),
             'boost': load_sfx('boost.mp3'),
+            'start': load_sfx('start.mp3'),
         }
         
         # Game Stuff
@@ -111,12 +112,16 @@ class Game(object):
                 'boost_down': Boost('down', sound=self._sounds['boost']),
                 'boost_left': Boost('left', sound=self._sounds['boost']),
                 'boost_right': Boost('right', sound=self._sounds['boost']),
+                'end': End(),
             },
             textures=self._images['textures']
         )
         self._camera = Camera(self._level)
         
         # Menus
+        self._init_menus()
+
+    def _init_menus(self: Self) -> None:
         self._dead_widgets = {
             'strokes': Text(
                 self._font,
@@ -144,6 +149,33 @@ class Game(object):
             )
         })
 
+        self._win_widgets = {
+            'strokes': Text(
+                self._font,
+                f'Strokes: {self._strokes}',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+            ),
+            'bounces': Text(
+                self._font,
+                f'Bounces: {self._bounces}',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+            ),
+        }
+        self._win_menu = Menu({
+            Text(
+                self._font,
+                'YOU BEAT THE LEVEL!',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
+            ),
+            self._win_widgets['strokes'],
+            self._win_widgets['bounces'],
+            Button(
+                gen_text_button_surf(self._font, 'Next Level', (255, 0, 0)),
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                self._next_level,
+            )
+        })
+
     def _restart(self: Self) -> None:
         self._state = 'alive'
         self._strokes = 0
@@ -153,10 +185,30 @@ class Game(object):
         self._puck.velocity = (0, 0)
         self._puck.boost = (0, 0)
         self._restarted = 1
+        self._sounds['start'].play()
+
+    def _next_level(self: Self) -> None:
+        self._restart()
+        # self._level = 'h
+
+    def _render_menu_bg(self: Self) -> None:
+        bg = self._level.background
+        if bg is not None:
+            size = self._camera.zoom * self._level.tilemap['bg']['scale']
+            bg = pg.transform.scale(bg, (size, size))
+            offset = pg.Vector2(
+                self._level_timer / 240 % 1 * size,
+                self._level_timer / 240 % 1 * size
+            )
+            for y in range(-1, int(self._SURF_SIZE[1] / bg.height) + 1):
+                for x in range(-1, int(self._SURF_SIZE[0] / bg.width) + 1):
+                    self._surface.blit(bg, (x * size, y * size) + offset)
 
     def run(self: Self) -> None:
         self._running = 1
         start_time = time.time()
+
+        self._sounds['start'].play()
         
         while self._running:
             # Delta time
@@ -184,6 +236,8 @@ class Game(object):
                     self._running = 0
                 elif self._state == 'dead':
                     self._dead_menu.handle_event(event)
+                elif self._state == 'win':
+                    self._win_menu.handle_event(event)
                 else:
                     if event.type == pg.MOUSEBUTTONDOWN:
                         self._restarted = 0
@@ -202,21 +256,12 @@ class Game(object):
             if self._state == 'dead':
                 # Update
                 self._dead_menu.update(rel_game_speed, mouse_pos, mouse)
-                
-                # Render
-                self._surface.fill((0, 0, 0))
-                bg = self._level.background
-                if bg is not None:
-                    size = self._camera.zoom * self._level.tilemap['bg']['scale']
-                    bg = pg.transform.scale(bg, (size, size))
-                    offset = pg.Vector2(
-                        self._level_timer / 240 % 1 * size,
-                        self._level_timer / 240 % 1 * size
-                    )
-                    for y in range(-1, int(self._SURF_SIZE[1] / bg.height) + 1):
-                        for x in range(-1, int(self._SURF_SIZE[0] / bg.width) + 1):
-                            self._surface.blit(bg, (x * size, y * size) + offset)
+                self._render_menu_bg()
                 self._dead_menu.render(self._surface)
+            elif self._state == 'win':
+                self._win_menu.update(rel_game_speed, mouse_pos, mouse)
+                self._render_menu_bg()
+                self._win_menu.render(self._surface)
             else:
                 # Update
                 self._level.update(rel_game_speed)
@@ -236,6 +281,16 @@ class Game(object):
                         f'Bounces: {self._bounces}'
                     )
                     self._sounds['die'].play()
+                elif self._level.specials['end'].touched:
+                    self._state = 'win'
+                    self._win_widgets['strokes'].text = (
+                        f'Strokes: {self._strokes}'
+                    )
+                    self._win_widgets['bounces'].text = (
+                        f'Bounces: {self._bounces}'
+                    )
+                    self._sounds['win'].play()
+
 
                 # Render 
                 self._camera.render(self._surface)
