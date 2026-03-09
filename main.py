@@ -51,7 +51,6 @@ class Game(object):
         self._surface = pg.Surface(self._SURF_SIZE)
         self._running = 0
         self._level_timer = 0
-        
     
         self._state = 'alive' # alive, dead, win, finish
         self._restarted = 0
