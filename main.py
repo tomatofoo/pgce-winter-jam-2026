@@ -53,7 +53,7 @@ class Game(object):
         self._level_timer = 0
         
     
-        self._state = 'alive'
+        self._state = 'alive' # alive, dead, win, finish
         self._restarted = 0
         self._strokes = 0
         self._bounces = 0

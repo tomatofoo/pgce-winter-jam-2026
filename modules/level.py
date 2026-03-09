@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 from typing import Self
 from numbers import Real
 
@@ -467,10 +468,11 @@ class Boost(Special):
         self.angle = angle
         self._magnitude = magnitude
         self._sound = sound
-        self._boosts = [] # boosts in last frame
+        self._boosts = set() # boosts in last frame
         # ^ used for sounds to not repeat
         # ^ not set because dict is unhashable
         self._last_boosts = self._boosts
+        self._particles = set() # entities to particle
 
     @property
     def angle(self: Self) -> Real:
@@ -505,8 +507,8 @@ class Boost(Special):
         self._sound = value
 
     def interact(self: Self, entity: Entity, data: dict) -> None:
-        boost = (entity, data)
-        self._boosts.append(boost)
+        boost = (entity, id(data))
+        self._boosts.add(boost)
 
         entity.boost = pg.Vector2(self._magnitude, 0).rotate(self._angle)
         
@@ -514,9 +516,27 @@ class Boost(Special):
             self._sound.set_volume(self._magnitude)
             self._sound.play()
 
+        particles = set()
+        self._particles.add(entity)
+        for entity in self._particles:
+            if entity._boost.magnitude() >= SMALL:
+                particles.add(entity)
+            velocity = (
+                -entity.net_velocity
+                .rotate(random.random() * 10 - 5)
+                * random.random()
+            )
+            entity._level.spawn_particle(
+                color=(255, 255, 255),
+                radius=0.1,
+                pos=entity._pos,
+                velocity=velocity,
+            )
+        self._particles = particles
+
     def _end_frame(self: Self) -> None:
         self._last_boosts = self._boosts
-        self._boosts = []
+        self._boosts = set()
 
 
 class End(Special):
