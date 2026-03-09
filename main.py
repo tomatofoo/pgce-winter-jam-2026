@@ -98,14 +98,19 @@ class Game(object):
         }
         
         # Game Stuff
+        self._health = ( # health amounts for each level
+            100,
+        )
+        self._level_number = 0
         self._puck = Puck(
             surfs=self._images['puck'],
             width=0.9,
             render_width=1,
+            health=self._health[self._level_number],
         )
         self._level = Level(
             entities={self._puck},
-            tilemap=load_tilemap(0),
+            tilemap=load_tilemap(self._level_number),
             specials={
                 'boost_up': Boost('up', sound=self._sounds['boost']),
                 'boost_down': Boost('down', sound=self._sounds['boost']),

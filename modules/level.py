@@ -461,7 +461,7 @@ class Boost(Special):
     # up, down, left, right are possible direction
     def __init__(self: Self,
                  angle: Real | str='up',
-                 magnitude: Real=0.4,
+                 magnitude: Real=0.5,
                  sound: Optional[mx.Sound]=None,
                  bounce: bool=0) -> None:
         super().__init__(bounce)
