@@ -71,6 +71,7 @@ class Game(object):
             load_img('specials', 'boost_down.png'),
             load_img('specials', 'boost_left.png'),
             load_img('specials', 'boost_right.png'),
+            load_img('specials', 'damage.png'),
             load_img('specials', 'end.png'),
         ]
         self._lines = [
@@ -95,6 +96,7 @@ class Game(object):
         self._types = [
             'normal',
             'end',
+            'damage',
             'boost_up',
             'boost_down',
             'boost_left',

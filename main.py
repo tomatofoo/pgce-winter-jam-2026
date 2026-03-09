@@ -87,6 +87,7 @@ class Game(object):
                 load_img('specials', 'boost_down.png'),
                 load_img('specials', 'boost_left.png'),
                 load_img('specials', 'boost_right.png'),
+                load_img('specials', 'damage.png'),
                 load_img('specials', 'end.png'),
             )
         }
@@ -110,6 +111,7 @@ class Game(object):
             'boost_down': Boost('down', sound=self._sounds['boost']),
             'boost_left': Boost('left', sound=self._sounds['boost']),
             'boost_right': Boost('right', sound=self._sounds['boost']),
+            'damage': None,
             'end': End(),
         }
         self._level_number = 0
