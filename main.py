@@ -97,6 +97,7 @@ class Game(object):
             'launch': load_sfx('launch.mp3'),
             'boost': load_sfx('boost.mp3'),
             'start': load_sfx('start.mp3'),
+            'win': load_sfx('win.mp3'),
         }
         
         # Game Stuff
@@ -114,16 +115,16 @@ class Game(object):
             'damage': None,
             'end': End(),
         }
-        self._level_number = 0
+        self._level_dex = 0
         self._puck = Puck(
             surfs=self._images['puck'],
             width=0.9,
             render_width=1,
-            health=self._health[self._level_number],
+            health=self._health[self._level_dex],
         )
         self._level = Level(
             entities={self._puck},
-            tilemap=load_tilemap(self._level_number),
+            tilemap=load_tilemap(self._level_dex),
             specials=self._specials,
             textures=self._images['textures'],
         )
@@ -171,6 +172,11 @@ class Game(object):
                 f'Bounces: {self._bounces}',
                 (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
             ),
+            'spare': Text(
+                self._font,
+                f'Spare: {self._puck.health}',
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
+            ),
         }
         self._win_menu = Menu({
             Text(
@@ -180,6 +186,7 @@ class Game(object):
             ),
             self._win_widgets['strokes'],
             self._win_widgets['bounces'],
+            self._win_widgets['spare'],
             Button(
                 gen_text_button_surf(self._font, 'Next Level', (255, 0, 0)),
                 (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
@@ -191,17 +198,17 @@ class Game(object):
         self._state = 'alive'
         self._strokes = 0
         self._bounces = 0
-        self._puck.health = self._health[self._level_number]
+        self._puck.health = self._health[self._level_dex]
         self._puck.pos = (0, 0)
         self._puck.velocity = (0, 0)
         self._puck.boost = (0, 0)
-        self._level.tilemap = load_tilemap(self._level_number)
+        self._level.tilemap = load_tilemap(self._level_dex)
         self._restarted = 1
         self._sounds['start'].play()
 
     def _next_level(self: Self) -> None:
+        self._level_dex += 1
         self._restart()
-        self._level_number += 1
 
     def _render_menu_bg(self: Self) -> None:
         bg = self._level.background
@@ -289,7 +296,23 @@ class Game(object):
                     sound = self._sounds['bounce']
                     sound.set_volume(self._puck.net_speed * 0.8)
                     sound.play()
-                if self._puck.dead:
+                if self._level.specials['end'].touched:
+                    # if level before end
+                    if self._level_dex > len(self._health) - 2:
+                        self._state = 'finish'
+                    else:
+                        self._state = 'win'
+                        self._win_widgets['strokes'].text = (
+                            f'Strokes: {self._strokes}'
+                        )
+                        self._win_widgets['bounces'].text = (
+                            f'Bounces: {self._bounces}'
+                        )
+                        self._win_widgets['spare'].text = (
+                            f'Spare: {self._puck.health}'
+                        )
+                        self._sounds['win'].play()
+                elif self._puck.dead:
                     self._state = 'dead'
                     self._dead_widgets['strokes'].text = (
                         f'Strokes: {self._strokes}'
@@ -298,16 +321,6 @@ class Game(object):
                         f'Bounces: {self._bounces}'
                     )
                     self._sounds['die'].play()
-                elif self._level.specials['end'].touched:
-                    self._state = 'win'
-                    self._win_widgets['strokes'].text = (
-                        f'Strokes: {self._strokes}'
-                    )
-                    self._win_widgets['bounces'].text = (
-                        f'Bounces: {self._bounces}'
-                    )
-                    self._sounds['win'].play()
-
 
                 # Render 
                 self._camera.render(self._surface)
