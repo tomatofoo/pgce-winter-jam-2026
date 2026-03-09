@@ -198,7 +198,7 @@ class Game(object):
 
     def _next_level(self: Self) -> None:
         self._restart()
-        # self._level = 'h
+        self._level_number += 1
 
     def _render_menu_bg(self: Self) -> None:
         bg = self._level.background
