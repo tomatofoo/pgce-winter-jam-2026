@@ -74,9 +74,13 @@ class Particle(object):
 class Entity(object):
 
     _TILE_OFFSETS = (
-        (-1, -1), (0, -1), (1, -1),
+                  (0, -1), 
         (-1,  0), (0,  0), (1,  0),
-        (-1,  1), (0,  1), (1,  1),
+                  (0,  1), 
+
+        (-1, -1),          (1, -1),
+
+        (-1,  1),          (1,  1),
     )
 
     def __init__(self: Self,
@@ -421,10 +425,10 @@ class Puck(Entity):
 
         entity_rect = self.rect()
         for special, rect, data in self._get_special_rects_around():
-            if entity_rect.colliderect(rect):
+            if entity_rect.colliderect(rect) and not special._bounce:
                 special.interact(self, data)
 
-        if bounced[0] is not None:
+        if bounced[0] is not None and bounced[0]._bounce:
             bounced[0].interact(self, bounced[1])
 
         self._health = max(self._health - self._bounced, 0)
@@ -560,6 +564,38 @@ class Boost(Special):
     def _end_frame(self: Self) -> None:
         self._last_boosts = self._boosts
         self._boosts = set()
+
+
+class Damage(Special):
+    def __init__(self: Self,
+                 damage: Real=10,
+                 sound: Optional[mx.Sound]=None,
+                 bounce: bool=1) -> None:
+        super().__init__(bounce)
+        self._damage = damage
+        self._sound = sound
+
+    @property
+    def damage(self: Self) -> Real:
+        return self._damage
+
+    @damage.setter
+    def damage(self: Self, value: Real) -> None:
+        self._damage = value
+
+    @property
+    def sound(self: Self) -> Optional[mx.Sound]:
+        return self._sound
+
+    @sound.setter
+    def sound(self: Self, value: Optional[mx.Sound]) -> None:
+        self._sound = value
+
+    def interact(self: Self, entity: Entity, data: dict) -> None:
+        entity.health -= self._damage
+
+        if self._sound is not None:
+            self._sound.play()
 
 
 class Win(Special):

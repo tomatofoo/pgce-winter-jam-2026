@@ -73,6 +73,7 @@ class Game(object):
             load_img('specials', 'boost_right.png'),
             load_img('specials', 'damage.png'),
             load_img('specials', 'win.png'),
+            load_img('specials', 'trophy.png'),
         ]
         self._lines = [
             # has to be lists because that's how json stores it

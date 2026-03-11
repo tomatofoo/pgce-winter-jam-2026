@@ -53,18 +53,23 @@ def get_line_y(line: tuple[Point], x: Real) -> Real:
     t = (x - point0[0]) / difference if difference else 0.5
     return pg.math.lerp(point0[1], point1[1], t)
 
-def gen_text_surf(font: pg.Font, text: str, dropshadow: bool=1) -> pg.Surface:
+def gen_text_surf(font: pg.Font,
+                  text: str,
+                  color: ColorLike=(255, 255, 255),
+                  dropshadow: bool=1) -> pg.Surface:
     size = font.size(text)
     surf = pg.Surface((size[0], size[1] + 2))
     surf.set_colorkey((0, 0, 0))
     if dropshadow:
-        surf.blit(font.render(text, 0, (51, 51, 51)), (0, 2))
-    surf.blit(font.render(text, 0, (255, 255, 255)), (0, 0))
+        shadow_color = (color[0] * 0.2, color[1] * 0.2, color[2] * 0.2)
+        surf.blit(font.render(text, 0, shadow_color), (0, 2))
+    surf.blit(font.render(text, 0, color), (0, 0))
     return surf
 
 def gen_text_button_surf(font: pg.Font,
                          text: str,
-                         bgcolor: ColorLike,
+                         txcolor: ColorLike=(255, 255, 255),
+                         bgcolor: ColorLike=(255, 0, 0),
                          olcolor: ColorLike=(255, 255, 255),
                          olwidth: int=2,
                          padding: int=8,
@@ -78,8 +83,9 @@ def gen_text_button_surf(font: pg.Font,
     ))
     surf.fill(bgcolor)
     pg.draw.rect(surf, olcolor, (0, 0, surf.width, surf.height), olwidth)
-    surf.blit(gen_text_surf(font, text, dropshadow), (padding, padding))
-
+    surf.blit(
+        gen_text_surf(font, text, txcolor, dropshadow), (padding, padding),
+    )
 
     return surf
 

@@ -43,8 +43,10 @@ class Text(Widget):
                  font: pg.Font,
                  text: str,
                  pos: Point,
+                 color: ColorLike=(255, 255, 255),
                  dropshadow: bool=1) -> None:
         self._font = font
+        self._color = color
         self._dropshadow = dropshadow
         self.text = text
         super().__init__(self._surf, pos)
@@ -56,6 +58,7 @@ class Text(Widget):
     @font.setter
     def font(self: Self, value: pg.Font) -> None:
         self._font = value
+        self.text = self._text
 
     @property
     def text(self: Self) -> str:
@@ -64,7 +67,21 @@ class Text(Widget):
     @text.setter
     def text(self: Self, value: str) -> None:
         self._text = value
-        self._surf = gen_text_surf(self._font, self._text, self._dropshadow)
+        self._surf = gen_text_surf(
+            self._font,
+            self._text,
+            self._color,
+            self._dropshadow,
+        )
+
+    @property
+    def color(self: Self) -> ColorLike:
+        return self._color
+
+    @color.setter
+    def color(self: Self, value: ColorLike) -> None:
+        self._color = value
+        self.text = self._text
 
     @property
     def dropshadow(self: Self) -> bool:
