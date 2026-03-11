@@ -61,7 +61,7 @@ class Game(object):
             },
         }
         self._textures = [
-            load_img('backgrounds', '1.png'),
+            load_img('backgrounds', 'main.png'),
             load_img('obstacles', 'square.png'),
             load_img('obstacles', 'triangle1.png'),
             load_img('obstacles', 'triangle2.png'),

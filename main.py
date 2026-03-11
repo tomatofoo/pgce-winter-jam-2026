@@ -58,6 +58,9 @@ class Game(object):
         self._restarted = 0
         self._strokes = 0
         self._bounces = 0
+        self._total_strokes = 0
+        self._total_bounces = 0
+        self._pars_beaten = 0
         
         # Assets
         self._font = pg.font.SysFont('Arial', int(self._SURF_SIZE[1] / 15))
@@ -79,8 +82,9 @@ class Game(object):
                 load_img('puck', '10.png'),
                 load_img('puck', 'dead.png'),
             ),
+            'finish': load_img('backgrounds', 'finish.png'),
             'textures': (
-                load_img('backgrounds', '1.png'),
+                load_img('backgrounds', 'main.png'),
                 load_img('obstacles', 'square.png'),
                 load_img('obstacles', 'triangle1.png'),
                 load_img('obstacles', 'triangle2.png'),
@@ -107,21 +111,19 @@ class Game(object):
         
         # Game Stuff
         ## Data
-        # health amounts for each level
+        # health and par amounts for each level
         # Also used to determine number of levels
         self._health = (
             15,
             12,
             20,
-            24,
-            100,
+            20,
         )
         self._par = (
             7,
             3,
             3,
-            3,
-            10,
+            1,
         )
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
@@ -131,7 +133,7 @@ class Game(object):
             'damage': Damage(10),
             'win': Win(),
         }
-        self._level_dex = 3
+        self._level_dex = 0
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
@@ -148,6 +150,7 @@ class Game(object):
         
         # Menus
         self._init_menus()
+        self._transition_timer = 0
 
     def _init_menus(self: Self) -> None:
         self._widgets = {
@@ -180,6 +183,23 @@ class Game(object):
                     (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
                 ),
             },
+            'finish': {
+                'strokes': Text(
+                    self._font,
+                    f'Total strokes: {self._total_strokes}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+                ),
+                'bounces': Text(
+                    self._font,
+                    f'Total bounces: {self._total_bounces}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+                ),
+                'pars': Text(
+                    self._font,
+                    f'Pars beaten: {self._pars_beaten}',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
+                ),
+            },
         }
         self._menus = {
             'dead': Menu({
@@ -194,7 +214,7 @@ class Game(object):
                     gen_text_button_surf(self._font, 'Restart'),
                     (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
                     self._restart,
-                )
+                ),
             }),
             'win': Menu({
                 Text(
@@ -209,12 +229,33 @@ class Game(object):
                     gen_text_button_surf(self._font, 'Next Level'),
                     (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
                     self._next_level,
-                )
+                ),
+            }),
+            'finish': Menu({
+                Text(
+                    self._font,
+                    'YOU FINISHED!',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
+                ),
+                self._widgets['finish']['strokes'],
+                self._widgets['finish']['bounces'],
+                self._widgets['finish']['pars'],
+                Button(
+                    gen_text_button_surf(self._font, 'Play Again'),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                    self._play_again,
+                ),
             })
         }
 
+    def _play_again(self: Self) -> None:
+        self._level_dex = 0
+        self._total_bounces = 0
+        self._total_strokes = 0
+        self._pars_beaten = 0
+        self._restart()
+
     def _restart(self: Self) -> None:
-        self._level_timer = 0
         self._state = 'alive'
         self._strokes = 0
         self._bounces = 0
@@ -232,15 +273,29 @@ class Game(object):
             random.random() * 10 - 5,
         )
 
-
         self._sounds['start'].play()
 
     def _next_level(self: Self) -> None:
-        self._level_dex += 1
-        self._restart()
+        if self._level_dex > len(self._par) - 2:
+            self._transition_timer = 0
+            self._state = 'finish'
+            self._widgets['finish']['strokes'].text = f'Total strokes: {self._total_strokes}'
+            self._widgets['finish']['bounces'].text = f'Total bounces: {self._total_bounces}'
+            self._widgets['finish']['pars'].text = f'Pars beaten: {self._pars_beaten}'
 
-    def _render_menu_bg(self: Self) -> None:
-        bg = self._level.background
+        else:
+            self._level_dex += 1
+            self._restart()
+
+    def _darken_surf(self: Self) -> None:
+        # pg.transform.hsl gives weird results
+        surf = pg.Surface(self._SURF_SIZE)
+        surf.set_alpha(96)
+        self._surface.blit(surf, (0, 0))
+
+    def _render_menu_bg(self: Self, bg: Optional[pg.Surface]=None) -> None:
+        if bg is None:
+            bg = self._level.background
         if bg is not None:
             size = self._camera.zoom * self._level.tilemap['bg']['scale']
             bg = pg.transform.scale(bg, (size, size))
@@ -251,21 +306,10 @@ class Game(object):
             for y in range(-1, int(self._SURF_SIZE[1] / bg.height) + 1):
                 for x in range(-1, int(self._SURF_SIZE[0] / bg.width) + 1):
                     self._surface.blit(bg, (x * size, y * size) + offset)
+            self._darken_surf()
 
-    def _render_transition(self: Self, timer: Real, time: Real) -> None:
-        if 0 <= timer <= time:
-            surf = pg.Surface(self._SURF_SIZE)
-            surf.set_colorkey((255, 255, 255))
-            pg.draw.circle(
-                surf,
-                (255, 255, 255),
-                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] / 2),
-                abs(pg.math.smoothstep(-0.5, 0.5, timer / time))
-                * pg.Vector2(self._SURF_SIZE).magnitude() + 2,
-            )
-            self._surface.blit(surf, (0, 0))
-
-    def _render_tutorial(self: Self, surf: pg.Surface, offset: Point) -> None:
+    def _render_tutorial(self: Self, size: Point, offset: Point) -> None:
+        self._darken_surf()
         text_offset = (self._level_timer % 60 > 30) * 2
         restart_surf = gen_text_surf(self._font, 'R to restart')
         restart_pos = (
@@ -287,7 +331,7 @@ class Game(object):
         self._surface.blit(bounce_surf, bounce_pos)
 
         # all this for big red arrow btw
-        end_pos = pg.Vector2(offset) + surf.size + (8, 8)
+        end_pos = pg.Vector2(offset) + size + (8, 8)
         start_pos = pg.Vector2(stroke_pos) - (0, text_offset)
         vector = end_pos - start_pos
         points = [
@@ -320,28 +364,26 @@ class Game(object):
 
     def _check_win(self: Self) -> bool:
         if self._level.specials['win'].touched:
-            # if level before end
-            if self._level_dex > len(self._health) - 2:
-                self._state = 'finish'
+            self._transition_timer = 0
+            self._state = 'win'
+            self._widgets['win']['strokes'].text = (
+                f'Strokes: {self._strokes}'
+            )
+            self._widgets['win']['bounces'].text = (
+                f'Bounces: {self._bounces}'
+            )
+            self._widgets['win']['spare'].text = (
+                f'Spare: {self._puck.health} '
+                f'(Par: {self._par[self._level_dex]})'
+            )
+            if self._puck.health == 0:
+                self._widgets['win']['spare'].color = (255, 255, 0)
+            elif self._puck.health >= self._par[self._level_dex]:
+                self._widgets['win']['spare'].color = (0, 255, 0)
+                self._pars_beaten += 1
             else:
-                self._state = 'win'
-                self._widgets['win']['strokes'].text = (
-                    f'Strokes: {self._strokes}'
-                )
-                self._widgets['win']['bounces'].text = (
-                    f'Bounces: {self._bounces}'
-                )
-                self._widgets['win']['spare'].text = (
-                    f'Spare: {self._puck.health} '
-                    f'(Par: {self._par[self._level_dex]})'
-                )
-                if self._puck.health == 0:
-                    self._widgets['win']['spare'].color = (255, 255, 0)
-                elif self._puck.health > self._par[self._level_dex]:
-                    self._widgets['win']['spare'].color = (0, 255, 0)
-                else:
-                    self._widgets['win']['spare'].color = (255, 255, 255)
-                self._sounds['win'].play()
+                self._widgets['win']['spare'].color = (255, 255, 255)
+            self._sounds['win'].play()
             return True
         return False
 
@@ -363,30 +405,62 @@ class Game(object):
             velocity = velocity,
         )
 
+    def _render_transition(self: Self, timer: Real, time: Real) -> None:
+        if 0 <= timer <= time:
+            surf = pg.Surface(self._SURF_SIZE)
+            surf.set_colorkey((255, 255, 255))
+            pg.draw.circle(
+                surf,
+                (255, 255, 255),
+                (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] / 2),
+                abs(pg.math.smoothstep(-0.5, 0.5, timer / time))
+                * pg.Vector2(self._SURF_SIZE).magnitude() + 2,
+            )
+            self._surface.blit(surf, (0, 0))
+
     def _end(self: Self,
              rel_game_speed: Real,
              mouse_pos: Point,
              mouse_pressed: tuple[bool],
              key: str,
-             func: Callable) -> None:
+             func: Callable=lambda: 1) -> None:
+        self._transition_timer += rel_game_speed
         if self._puck.net_speed > SMALL:
-            self._level_timer = 0
+            self._transition_timer = 0
             self._level.update(rel_game_speed)
             self._puck.velocity *= 0.9**rel_game_speed
             func()
             self._camera.update(rel_game_speed, self._puck.pos)
             self._camera.render(self._surface)
+        elif self._transition_timer >= 30:
+            self._menus[key].update(
+                rel_game_speed, mouse_pos, mouse_pressed,
+            )
+            self._render_menu_bg()
+            self._menus[key].render(self._surface)
         else:
-            if self._level_timer >= 30:
-                self._menus[key].update(
-                    rel_game_speed, mouse_pos, mouse_pressed,
-                )
-                self._render_menu_bg()
-                self._menus[key].render(self._surface)
-            else:
-                self._camera.update(rel_game_speed, self._puck.pos)
-                self._camera.render(self._surface)
-            self._render_transition(self._level_timer, 60)
+            self._camera.update(rel_game_speed, self._puck.pos)
+            self._camera.render(self._surface)
+        self._render_transition(self._transition_timer, 60)
+
+    def _finish(self: Self,
+                rel_game_speed: Real,
+                mouse_pos: Point,
+                mouse_pressed: tuple[bool]) -> None:
+        self._transition_timer += rel_game_speed
+        if self._transition_timer < 30:
+            self._menus['win'].update(
+                rel_game_speed, mouse_pos, mouse_pressed,
+            )
+            self._render_menu_bg()
+            self._menus['win'].render(self._surface)
+        else:
+            self._menus['finish'].update(
+                rel_game_speed, mouse_pos, mouse_pressed,
+            )
+            self._render_menu_bg(self._images['finish'])
+            self._menus['finish'].render(self._surface)
+        self._render_transition(self._transition_timer, 60)
 
     def run(self: Self) -> None:
         self._running = 1
@@ -425,10 +499,22 @@ class Game(object):
                 elif event.type == pg.KEYDOWN:
                     if event.key == pg.K_r:
                         self._restart()
+                elif event.type in ( # will mess up delta time
+                    pg.WINDOWRESIZED,
+                    pg.WINDOWMINIMIZED,
+                    pg.WINDOWMAXIMIZED,
+                    pg.WINDOWFOCUSGAINED,
+                    pg.WINDOWFOCUSLOST,
+                ):
+                    start_time = time.time()
+                    delta_time = 0
+                    rel_game_speed = 0
                 elif self._state == 'dead':
                     self._menus['dead'].handle_event(event)
                 elif self._state == 'win':
                     self._menus['win'].handle_event(event)
+                elif self._state == 'finish':
+                    self._menus['finish'].handle_event(event)
                 else:
                     if event.type == pg.MOUSEBUTTONDOWN:
                         self._restarted = 0
@@ -438,6 +524,7 @@ class Game(object):
                         and can_launch
                         and not self._restarted):
                         self._strokes += 1
+                        self._total_strokes += 1
                         self._puck.health -= 5
                         self._puck.velocity = (
                             vector * 0.1 if vector else pg.Vector2(0, 0)
@@ -462,6 +549,8 @@ class Game(object):
                     'win',
                     self._spawn_particle_at_puck,
                 )
+            elif self._state == 'finish':
+                self._finish(rel_game_speed, mouse_pos, mouse)
             else:
                 self._puck.autosurf = 1
                 # Update
@@ -470,12 +559,14 @@ class Game(object):
 
                 if self._puck.bounced:
                     self._bounces += 1
+                    self._total_bounces += 1
                     sound = self._sounds['bounce']
                     sound.set_volume(self._puck.net_speed * 0.8)
                     sound.play()
 
                 # checkwin must be first so evaluated first
                 if not self._check_win() and self._puck.dead:
+                    self._transition_timer = 0
                     self._state = 'dead'
                     self._widgets['dead']['strokes'].text = (
                         f'Strokes: {self._strokes}'
@@ -524,7 +615,7 @@ class Game(object):
                 surf = gen_text_surf(self._font, str(self._puck.health))
                 # tutorial needs offset and surf dimensions so placed here
                 if self._state == 'tutorial':
-                    self._render_tutorial(surf, offset)
+                    self._render_tutorial(surf.size, offset)
                 self._surface.blit(surf, offset)
                 if can_launch: # Launch Indicator
                     surf = pg.transform.scale(
