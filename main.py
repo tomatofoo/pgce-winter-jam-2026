@@ -113,14 +113,14 @@ class Game(object):
             15,
             12,
             20,
-            100,
+            24,
             100,
         )
         self._par = (
             7,
             3,
             3,
-            10,
+            3,
             10,
         )
         self._specials = {
@@ -404,13 +404,17 @@ class Game(object):
 
             mouse = pg.mouse.get_pressed()
             mouse_pos = pg.mouse.get_pos()
+            # scale down mouse pos
             mouse_pos = (mouse_pos[0] / self._SURF_RATIO[0],
                          mouse_pos[1] / self._SURF_RATIO[1])
-            vector = (
-                self._puck.pos
-                - self._camera.gen_map_pos(mouse_pos, self._surface.size)
-            )
-            if vector.magnitude() > 5: # cant scale zero vector
+            # using center instead of player pos so that vector doesn't 
+            # move when camera moves
+            vector = pg.Vector2(
+                self._SURF_SIZE[0] / 2 - mouse_pos[0],
+                self._SURF_SIZE[1] / 2 - mouse_pos[1],
+            ) / self._camera.zoom
+            # cant scale zero vector
+            if vector.magnitude() > 5:
                 vector.scale_to_length(5)
             can_launch = self._puck.speed < SMALL
 
@@ -483,9 +487,7 @@ class Game(object):
 
                 # Render 
                 self._camera.render(self._surface)
-                if (mouse[0]
-                    and self._puck.speed < SMALL
-                    and not self._restarted):
+                if mouse[0] and can_launch and not self._restarted:
                     start_pos = self._camera.gen_screen_pos(
                         self._puck.pos, self._surface.size,
                     )
