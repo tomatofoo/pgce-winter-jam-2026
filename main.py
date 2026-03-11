@@ -2,6 +2,7 @@ import time
 import math
 import random
 from typing import Self
+from typing import Optional
 from typing import Callable
 from numbers import Real
 
