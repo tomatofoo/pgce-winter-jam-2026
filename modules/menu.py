@@ -4,6 +4,7 @@ from numbers import Real
 
 import pygame as pg
 from pygame.typing import Point
+from pygame.typing import ColorLike
 
 from modules.utils import gen_text_surf
 
