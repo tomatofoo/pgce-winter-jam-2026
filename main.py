@@ -18,18 +18,21 @@ from modules.utils import load_mus
 from modules.utils import load_tilemap
 from modules.utils import gen_text_surf
 from modules.utils import gen_text_button_surf
+from modules.level import Entity
 from modules.level import Puck
 from modules.level import Boost
 from modules.level import Damage
-from modules.level import Win
+from modules.level import Function
 from modules.level import Level
 from modules.camera import Camera
+from modules.menu import Widget
 from modules.menu import Text
 from modules.menu import Button
 from modules.menu import Menu
 
 
 # Sloppy coded but it's okay because it's a game jam
+# scattered functions, hardcoded values, etc.
 class Game(object):
 
     _SCREEN_SIZE = (960, 720)
@@ -59,9 +62,13 @@ class Game(object):
         self._restarted = 0
         self._strokes = 0
         self._bounces = 0
+        self._par_beaten = 0 # for current level
+        self._star_gotten = 0 # for current level
+        self._star_won = 0
         self._total_strokes = 0
         self._total_bounces = 0
         self._pars_beaten = 0
+        self._stars = 0
         
         # Assets
         self._font = pg.font.SysFont('Arial', int(self._SURF_SIZE[1] / 15))
@@ -98,6 +105,8 @@ class Game(object):
                 load_img('specials', 'damage.png'),
                 load_img('specials', 'win.png'),
                 load_img('specials', 'trophy.png'),
+                load_img('specials', 'star.png'),
+                load_img('specials', 'star_empty.png'),
             )
         }
         pg.mixer.set_num_channels(64) # so shatter sound can play
@@ -106,8 +115,11 @@ class Game(object):
             'die': load_sfx('die.mp3'),
             'launch': load_sfx('launch.mp3'),
             'boost': load_sfx('boost.mp3'),
+            'damage': load_sfx('damage.mp3'),
+            'star': load_sfx('star.mp3'),
             'start': load_sfx('start.mp3'),
             'win': load_sfx('win.mp3'),
+            'finish': load_sfx('finish.mp3'),
         }
         
         # Game Stuff
@@ -118,7 +130,7 @@ class Game(object):
             15,
             12,
             20,
-            20,
+            24,
         )
         self._par = (
             7,
@@ -132,9 +144,10 @@ class Game(object):
             'boost_left': Boost('left', sound=self._sounds['boost']),
             'boost_right': Boost('right', sound=self._sounds['boost']),
             'damage': Damage(10),
-            'win': Win(),
+            'win': Function(self._win, one_for_all=1),
+            'star': Function(self._star),
         }
-        self._level_dex = 0
+        self._level_dex = 3
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
@@ -188,17 +201,22 @@ class Game(object):
                 'strokes': Text(
                     self._font,
                     f'Total strokes: {self._total_strokes}',
-                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.275),
                 ),
                 'bounces': Text(
                     self._font,
                     f'Total bounces: {self._total_bounces}',
-                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.4),
                 ),
                 'pars': Text(
                     self._font,
                     f'Pars beaten: {self._pars_beaten}',
-                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.525),
+                ),
+                'stars': Text(
+                    self._font,
+                    f'Stars: {self._stars} / 3',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.65),
                 ),
             },
         }
@@ -236,14 +254,15 @@ class Game(object):
                 Text(
                     self._font,
                     'YOU FINISHED!',
-                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.15),
                 ),
                 self._widgets['finish']['strokes'],
                 self._widgets['finish']['bounces'],
                 self._widgets['finish']['pars'],
+                self._widgets['finish']['stars'],
                 Button(
                     gen_text_button_surf(self._font, 'Play Again'),
-                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.825),
                     self._play_again,
                 ),
             })
@@ -254,13 +273,18 @@ class Game(object):
         self._total_bounces = 0
         self._total_strokes = 0
         self._pars_beaten = 0
+        self._stars = 0
+        self._star_won = 0
         self._restart()
 
     def _restart(self: Self) -> None:
         self._state = 'alive'
         self._strokes = 0
         self._bounces = 0
+        self._star_gotten = 0
         self._restarted = 1
+        # par_beaten and star_gotten aren't reset here so that if one resets 
+        # during a win it still counts
 
         self._puck.health = self._health[self._level_dex]
         self._puck.max_health = self._health[self._level_dex]
@@ -273,6 +297,9 @@ class Game(object):
             random.random() * 10 - 5,
             random.random() * 10 - 5,
         )
+        if self._star_won:
+            for key in self._level.tiles(self._specials['star']):
+                self._star(self._puck, self._level.tilemap[key])
 
         self._sounds['start'].play()
 
@@ -283,9 +310,14 @@ class Game(object):
             self._widgets['finish']['strokes'].text = f'Total strokes: {self._total_strokes}'
             self._widgets['finish']['bounces'].text = f'Total bounces: {self._total_bounces}'
             self._widgets['finish']['pars'].text = f'Pars beaten: {self._pars_beaten}'
-
+            self._widgets['finish']['stars'].text = f'Stars: {self._stars} / 3'
+            if self._stars >= 3:
+                self._widgets['finish']['stars'].color = (0, 255, 0)
+            self._sounds['finish'].play()
         else:
             self._level_dex += 1
+            self._star_won = 0
+            self._par_beaten = 0
             self._restart()
 
     def _darken_surf(self: Self) -> None:
@@ -363,35 +395,42 @@ class Game(object):
         # Triangle
         pg.draw.polygon(self._surface, (255, 0, 0), points)
 
-    def _check_win(self: Self) -> bool:
-        if self._level.specials['win'].touched:
-            self._transition_timer = 0
-            self._state = 'win'
-            self._widgets['win']['strokes'].text = (
-                f'Strokes: {self._strokes}'
-            )
-            self._widgets['win']['bounces'].text = (
-                f'Bounces: {self._bounces}'
-            )
-            self._widgets['win']['spare'].text = (
-                f'Spare: {self._puck.health} '
-                f'(Par: {self._par[self._level_dex]})'
-            )
-            if self._puck.health == 0:
-                self._widgets['win']['spare'].color = (255, 255, 0)
-            elif self._puck.health >= self._par[self._level_dex]:
-                self._widgets['win']['spare'].color = (0, 255, 0)
+    def _star(self: Self, entity: Entity, data: dict) -> None:
+        data['texture'] = 14 # empty start texture
+        self._star_gotten = 1
+        if not self._star_won:
+            self._sounds['star'].play()
+
+    def _win(self: Self, entity: Entity, data: dict) -> None:
+        self._transition_timer = 0
+        self._state = 'win'
+        self._widgets['win']['strokes'].text = (
+            f'Strokes: {self._strokes}'
+        )
+        self._widgets['win']['bounces'].text = (
+            f'Bounces: {self._bounces}'
+        )
+        self._widgets['win']['spare'].text = (
+            f'Spare: {self._puck.health} '
+            f'(Par: {self._par[self._level_dex]})'
+        )
+        if self._puck.health == 0:
+            self._widgets['win']['spare'].color = (255, 255, 0)
+        elif self._puck.health >= self._par[self._level_dex]:
+            self._widgets['win']['spare'].color = (0, 255, 0)
+            if not self._par_beaten:
                 self._pars_beaten += 1
-            else:
-                self._widgets['win']['spare'].color = (255, 255, 255)
-            self._sounds['win'].play()
-            return True
-        return False
+                self._par_beaten = 1
+        else:
+            self._widgets['win']['spare'].color = (255, 255, 255)
+        if self._star_gotten and not self._star_won:
+            self._stars += 1
+            self._star_won = 1
+        self._sounds['win'].play()
 
     def _end_dead(self: Self) -> None:
         self._puck.autosurf = 0
         self._puck.surf = self._images['puck'][10]
-        self._check_win()
 
     def _spawn_particle_at_puck(self: Self) -> None:
         velocity = (
@@ -565,8 +604,7 @@ class Game(object):
                     sound.set_volume(self._puck.net_speed * 0.8)
                     sound.play()
 
-                # checkwin must be first so evaluated first
-                if not self._check_win() and self._puck.dead:
+                if self._puck.dead:
                     self._transition_timer = 0
                     self._state = 'dead'
                     self._widgets['dead']['strokes'].text = (

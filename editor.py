@@ -74,6 +74,7 @@ class Game(object):
             load_img('specials', 'damage.png'),
             load_img('specials', 'win.png'),
             load_img('specials', 'trophy.png'),
+            load_img('specials', 'star.png'),
         ]
         self._lines = [
             # has to be lists because that's how json stores it
@@ -104,6 +105,7 @@ class Game(object):
             'boost_down',
             'boost_left',
             'boost_right',
+            'star',
         ]
         self._data = {
             'texture': 1,

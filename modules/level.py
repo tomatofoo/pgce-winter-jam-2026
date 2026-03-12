@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import random
 from typing import Self
+from typing import Callable
 from numbers import Real
 
 import pygame as pg
@@ -452,7 +453,6 @@ class Puck(Entity):
 
 class Special(object): # must be deepcopied per level
     def __init__(self: Self, bounce: bool=0) -> None:
-        self._tiles = {} # tiles and data
         self._bounce = bounce
 
     @property
@@ -598,20 +598,40 @@ class Damage(Special):
             self._sound.play()
 
 
-class Win(Special):
-    def __init__(self: Self, bounce: bool=0) -> None:
+class Function(Special): # will only call funciton once
+    def __init__(self: Self,
+                 func: Callable,
+                 one_for_all: bool=0,
+                 bounce: bool=0) -> None:
         super().__init__(bounce)
-        self._touched = None
+        self._func = func
+        self._one_for_all = one_for_all
+        self._interactions = set()
 
     @property
-    def touched(self: Self) -> Optional[Entity]:
-        return self._touched
+    def func(self: Self) -> Callable:
+        return self._func
+
+    @func.setter
+    def func(self: Self, value: Callable) -> None:
+        self._func = value
+
+    @property
+    def one_for_all(self: Self) -> bool:
+        return self._one_for_all
+
+    @one_for_all.setter
+    def one_for_all(self: Self, value: bool) -> None:
+        self._one_for_all = value
 
     def reset(self: Self) -> None:
-        self._touched = None
+        self._interactions = set()
 
     def interact(self: Self, entity: Entity, data: dict) -> None:
-        self._touched = entity
+        interaction = entity if self._one_for_all else (entity, id(data))
+        if interaction not in self._interactions:
+            self._interactions.add(interaction)
+            self._func(entity, data)
 
 
 class Level(object):
@@ -667,9 +687,9 @@ class Level(object):
                 special = self._special_key[special_type]
                 keys = self._specials.get(special)
                 if keys is None:
-                    self._specials[special] = []
-                    keys = self._specials[special]
-                keys.append(key)
+                    keys = set()
+                    self._specials[special] = keys
+                keys.add(key)
 
     @property
     def textures(self: Self) -> tuple[pg.Surface]:
@@ -687,6 +707,12 @@ class Level(object):
     def background(self: Self) -> Optional[pg.Surface]:
         dex = self._tilemap['bg']['texture']
         return self._textures[dex] if dex != -1 else None
+
+    def tiles(self: Self, special: Special) -> set[str]:
+        try:
+            return self._specials[special]
+        except KeyError:
+            return set()
 
     def spawn_particle(self: Self,
                        color: ColorLike,
