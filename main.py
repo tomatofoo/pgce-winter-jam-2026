@@ -140,7 +140,7 @@ class Game(object):
             'star': Function(self._star),
         }
         # REMINDME: MAKESURE TO SET LEVEL DEX TO ZERO BEFORE SUBMITTING
-        self._level_dex = 8
+        self._level_dex = 7
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
