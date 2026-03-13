@@ -15,8 +15,9 @@ def load_fnt(*args: str, size: int=20) -> None:
     fnt = pg.font.Font(os.path.join('data', 'fonts', *args), size)
     return fnt
 
-def load_img(*args: str, size: Point=None) -> pg.Surface:
+def load_img(*args: str, size: Point=None, alpha: bool=0) -> pg.Surface:
     img = pg.image.load(os.path.join('data', 'images', *args))
+    img = img.convert_alpha() if alpha else img.convert()
     if size is not None:
         img = pg.transform.scale(img, size)
     return img

@@ -72,41 +72,42 @@ class Game(object):
         
         # Assets
         self._font = pg.font.SysFont('Arial', int(self._SURF_SIZE[1] / 15))
+        # using alpha in images instead of colorkey for shadow
         self._images = {
             'launch': {
-                'can': load_img('launch', 'can.png'),
-                'cant': load_img('launch', 'cant.png'),
+                'can': load_img('launch', 'can.png', alpha=1),
+                'cant': load_img('launch', 'cant.png', alpha=1),
             },
             'puck': (
-                load_img('puck', '1.png'),
-                load_img('puck', '2.png'),
-                load_img('puck', '3.png'),
-                load_img('puck', '4.png'),
-                load_img('puck', '5.png'),
-                load_img('puck', '6.png'),
-                load_img('puck', '7.png'),
-                load_img('puck', '8.png'),
-                load_img('puck', '9.png'),
-                load_img('puck', '10.png'),
-                load_img('puck', 'dead.png'),
+                load_img('puck', '1.png', alpha=1),
+                load_img('puck', '2.png', alpha=1),
+                load_img('puck', '3.png', alpha=1),
+                load_img('puck', '4.png', alpha=1),
+                load_img('puck', '5.png', alpha=1),
+                load_img('puck', '6.png', alpha=1),
+                load_img('puck', '7.png', alpha=1),
+                load_img('puck', '8.png', alpha=1),
+                load_img('puck', '9.png', alpha=1),
+                load_img('puck', '10.png', alpha=1),
+                load_img('puck', 'dead.png', alpha=1),
             ),
             'finish': load_img('backgrounds', 'finish.png'),
             'textures': (
                 load_img('backgrounds', 'main.png'),
                 load_img('obstacles', 'square.png'),
-                load_img('obstacles', 'triangle1.png'),
-                load_img('obstacles', 'triangle2.png'),
-                load_img('obstacles', 'triangle3.png'),
-                load_img('obstacles', 'triangle4.png'),
+                load_img('obstacles', 'triangle1.png', alpha=1),
+                load_img('obstacles', 'triangle2.png', alpha=1),
+                load_img('obstacles', 'triangle3.png', alpha=1),
+                load_img('obstacles', 'triangle4.png', alpha=1),
                 load_img('specials', 'boost_up.png'),
                 load_img('specials', 'boost_down.png'),
                 load_img('specials', 'boost_left.png'),
                 load_img('specials', 'boost_right.png'),
-                load_img('specials', 'damage.png'),
+                load_img('specials', 'damage.png', alpha=1),
                 load_img('specials', 'win.png'),
-                load_img('specials', 'trophy.png'),
-                load_img('specials', 'star.png'),
-                load_img('specials', 'star_empty.png'),
+                load_img('specials', 'trophy.png', alpha=1),
+                load_img('specials', 'star.png', alpha=1),
+                load_img('specials', 'star_empty.png', alpha=1),
             )
         }
         pg.mixer.set_num_channels(64) # so shatter sound can play
@@ -129,13 +130,13 @@ class Game(object):
         self._health = (
             15,
             12,
-            20,
+            18,
             24,
         )
         self._par = (
             7,
             3,
-            4,
+            2,
             1,
         )
         self._specials = {
