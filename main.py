@@ -115,7 +115,7 @@ class Game(object):
         self._sounds = {
             'bounce': load_sfx('bounce.mp3'),
             'die': load_sfx('die.mp3'),
-            'launch': load_sfx('launch.mp3'),
+            'stroke': load_sfx('stroke.mp3'),
             'boost': load_sfx('boost.mp3'),
             'damage': load_sfx('damage.mp3'),
             'star': load_sfx('star.mp3'),
@@ -133,11 +133,13 @@ class Game(object):
             12,
             18,
             24,
+            22,
         )
         self._par = (
             7,
             3,
             2,
+            1,
             1,
         )
         self._specials = {
@@ -149,7 +151,8 @@ class Game(object):
             'win': Function(self._win, one_for_all=1),
             'star': Function(self._star),
         }
-        self._level_dex = 2
+        # REMINDME: MAKESURE TO SET LEVEL DEX TO ZERO BEFORE SUBMITTING
+        self._level_dex = 4
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
@@ -289,7 +292,7 @@ class Game(object):
                 self._widgets['tutorial']['stroke'],
                 self._widgets['tutorial']['bounce'],
                 Button(
-                    gen_text_button_surf(self._font, 'I Understand'),
+                    gen_text_button_surf(self._font, 'Start'),
                     (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
                     self._start,
                 ),
@@ -612,7 +615,7 @@ class Game(object):
                         self._puck.velocity = (
                             vector * 0.1 if vector else pg.Vector2(0, 0)
                         )
-                        sound = self._sounds['launch']
+                        sound = self._sounds['stroke']
                         sound.set_volume(vector.magnitude())
                         sound.play()
             
