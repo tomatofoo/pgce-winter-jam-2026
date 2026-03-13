@@ -58,8 +58,8 @@ class Game(object):
         self._running = 0
         self._level_timer = 0
     
-        self._state = 'tutorial' # tutorial, alive, dead, win, finish
-        self._restarted = 0
+        self._state = 'tutorial' # alive, tutorial, dead, win, finish
+        self._restarted = 1 # so first click (tutorial) doesn't count
         self._strokes = 0
         self._bounces = 0
         self._par_beaten = 0 # for current level
@@ -135,7 +135,7 @@ class Game(object):
         self._par = (
             7,
             3,
-            3,
+            4,
             1,
         )
         self._specials = {
@@ -147,7 +147,7 @@ class Game(object):
             'win': Function(self._win, one_for_all=1),
             'star': Function(self._star),
         }
-        self._level_dex = 3
+        self._level_dex = 2
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
@@ -160,7 +160,7 @@ class Game(object):
             specials=self._specials,
             textures=self._images['textures'],
         )
-        self._camera = Camera(self._level, zoom=16)
+        self._camera = Camera(self._level, (0, 4), zoom=16)
         
         # Menus
         self._init_menus()
@@ -168,6 +168,24 @@ class Game(object):
 
     def _init_menus(self: Self) -> None:
         self._widgets = {
+            'tutorial': {
+                # 'arrow' is added below
+                'restart': Text(
+                    self._font,
+                    f'R to restart',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.325),
+                ),
+                'stroke': Text(
+                    self._font,
+                    f'Stroke is -5',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.45),
+                ),
+                'bounce': Text(
+                    self._font,
+                    f'Bounce is -1',
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.575),
+                ),
+            },
             'dead': {
                 'strokes': Text(
                     self._font,
@@ -220,7 +238,56 @@ class Game(object):
                 ),
             },
         }
+        # Arrow for tutorial
+        tutorial_arrow = pg.Surface(self._SURF_SIZE)
+        tutorial_arrow.set_colorkey((0, 0, 0))
+        end_pos = self._font.size(str(self._puck.health)) + pg.Vector2(12, 12)
+        start_pos = pg.Vector2(
+            self._widgets['tutorial']['restart'].rect.left,
+            self._SURF_SIZE[1] / 2,
+        )
+        vector = end_pos - start_pos
+        points = [
+            pg.Vector2(point).rotate(vector.angle) * 16 + end_pos
+            for point in ((0, 0.25), (0, -0.25), (0.5, 0))
+        ]
+        pg.draw.line( # Shadow
+            tutorial_arrow,
+            (96, 0, 0),
+            start_pos + (0, 2),
+            end_pos + (0, 2),
+            2,
+        )
+        pg.draw.polygon( # Shadow of triangle
+            tutorial_arrow,
+            (96, 0, 0),
+            [point + (0, 2) for point in points],
+        )
+        pg.draw.line( # Line
+            tutorial_arrow,
+            (255, 0, 0),
+            start_pos,
+            end_pos,
+            2,
+        )
+        # Triangle
+        pg.draw.polygon(tutorial_arrow, (255, 0, 0), points)
+        self._widgets['tutorial']['arrow'] = Widget(
+            tutorial_arrow, pg.Vector2(self._SURF_SIZE) / 2,
+        )
+
         self._menus = {
+            'tutorial': Menu({
+                self._widgets['tutorial']['arrow'],
+                self._widgets['tutorial']['restart'],
+                self._widgets['tutorial']['stroke'],
+                self._widgets['tutorial']['bounce'],
+                Button(
+                    gen_text_button_surf(self._font, 'I Understand'),
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.75),
+                    self._start,
+                ),
+            }),
             'dead': Menu({
                 Text(
                     self._font,
@@ -277,7 +344,16 @@ class Game(object):
         self._star_won = 0
         self._restart()
 
-    def _restart(self: Self) -> None:
+    def _randomize_camera_pos(self: Self) -> None:
+        self._camera.pos = (
+            random.random() * 10 - 5,
+            random.random() * 10 - 5,
+        )
+
+    def _start(self: Self) -> None:
+        self._restart(self._camera.pos)
+
+    def _restart(self: Self, camera_pos: Optional[pg.Vector2]=None) -> None:
         self._state = 'alive'
         self._strokes = 0
         self._bounces = 0
@@ -293,10 +369,10 @@ class Game(object):
         self._puck.boost = (0, 0)
         self._level.clear_particles()
         self._level.tilemap = load_tilemap(self._level_dex)
-        self._camera.pos = (
-            random.random() * 10 - 5,
-            random.random() * 10 - 5,
-        )
+        if camera_pos is None:
+            self._randomize_camera_pos()
+        else:
+            self._camera_pos = camera_pos
         if self._star_won:
             for key in self._level.tiles(self._specials['star']):
                 self._star(self._puck, self._level.tilemap[key])
@@ -341,60 +417,6 @@ class Game(object):
                     self._surface.blit(bg, (x * size, y * size) + offset)
             self._darken_surf()
 
-    def _render_tutorial(self: Self, size: Point, offset: Point) -> None:
-        self._darken_surf()
-        text_offset = (self._level_timer % 60 > 30) * 2
-        restart_surf = gen_text_surf(self._font, 'R to restart')
-        restart_pos = (
-            (self._SURF_SIZE[0] - restart_surf.width) / 2,
-            self._SURF_SIZE[1] * 0.3 + text_offset,
-        )
-        self._surface.blit(restart_surf, restart_pos)
-        stroke_surf = gen_text_surf(self._font, 'Stroke is -5')
-        stroke_pos = (
-            (self._SURF_SIZE[0] - stroke_surf.width) / 2,
-            self._SURF_SIZE[1] * 0.425 + text_offset,
-        )
-        self._surface.blit(stroke_surf, stroke_pos)
-        bounce_surf = gen_text_surf(self._font, 'Bounce is -1')
-        bounce_pos = (
-            (self._SURF_SIZE[0] - bounce_surf.width) / 2,
-            self._SURF_SIZE[1] * 0.55 + text_offset,
-        )
-        self._surface.blit(bounce_surf, bounce_pos)
-
-        # all this for big red arrow btw
-        end_pos = pg.Vector2(offset) + size + (8, 8)
-        start_pos = pg.Vector2(stroke_pos) - (0, text_offset)
-        vector = end_pos - start_pos
-        points = [
-            pg.Vector2(point).rotate(vector.angle)
-            * self._camera.zoom
-            + end_pos
-            for point in ((0, 0.25), (0, -0.25), (0.5, 0))
-        ]
-        pg.draw.line( # Shadow
-            self._surface,
-            (96, 0, 0),
-            start_pos + (0, 2),
-            end_pos + (0, 2),
-            2,
-        )
-        pg.draw.polygon( # Shadow of triangle
-            self._surface,
-            (96, 0, 0),
-            [point + (0, 2) for point in points],
-        )
-        pg.draw.line( # Line
-            self._surface,
-            (255, 0, 0),
-            start_pos,
-            end_pos,
-            2,
-        )
-        # Triangle
-        pg.draw.polygon(self._surface, (255, 0, 0), points)
-
     def _star(self: Self, entity: Entity, data: dict) -> None:
         data['texture'] = 14 # empty start texture
         self._star_gotten = 1
@@ -415,12 +437,14 @@ class Game(object):
             f'(Par: {self._par[self._level_dex]})'
         )
         if self._puck.health == 0:
-            self._widgets['win']['spare'].color = (255, 255, 0)
-        elif self._puck.health >= self._par[self._level_dex]:
+            self._widgets['win']['spare'].color = (0, 255, 255)
+        elif self._puck.health > self._par[self._level_dex]:
             self._widgets['win']['spare'].color = (0, 255, 0)
             if not self._par_beaten:
                 self._pars_beaten += 1
                 self._par_beaten = 1
+        elif self._puck.health == self._par[self._level_dex]:
+            self._widgets['win']['spare'].color = (255, 255, 0)
         else:
             self._widgets['win']['spare'].color = (255, 255, 255)
         if self._star_gotten and not self._star_won:
@@ -442,7 +466,7 @@ class Game(object):
             color=(255, 255, 255),
             radius=0.1,
             pos=self._puck.pos,
-            velocity = velocity,
+            velocity=velocity,
         )
 
     def _render_transition(self: Self, timer: Real, time: Real) -> None:
@@ -457,6 +481,27 @@ class Game(object):
                 * pg.Vector2(self._SURF_SIZE).magnitude() + 2,
             )
             self._surface.blit(surf, (0, 0))
+
+    def _render_hud(self: Self, can_launch: bool) -> None:
+        surf = gen_text_surf(self._font, str(self._puck.health))
+        # tutorial needs offset and surf dimensions so placed here
+        self._surface.blit(surf, (4, 4))
+        if can_launch: # Launch Indicator
+            surf = pg.transform.scale(
+                self._images['launch']['can'], (32, 32),
+            )
+            self._surface.blit(
+                surf,
+                (self._SURF_SIZE[0] - 4 - surf.width, 4),
+            )
+        else:
+            surf = pg.transform.scale(
+                self._images['launch']['cant'], (32, 32),
+            )
+            self._surface.blit(
+                surf,
+                (self._SURF_SIZE[0] - 4 - surf.width, 4),
+            )
 
     def _end(self: Self,
              rel_game_speed: Real,
@@ -506,8 +551,6 @@ class Game(object):
         self._running = 1
         start_time = time.time()
 
-        self._sounds['start'].play()
-        
         while self._running:
             # Delta time
             delta_time = time.time() - start_time
@@ -549,17 +592,11 @@ class Game(object):
                     start_time = time.time()
                     delta_time = 0
                     rel_game_speed = 0
-                elif self._state == 'dead':
-                    self._menus['dead'].handle_event(event)
-                elif self._state == 'win':
-                    self._menus['win'].handle_event(event)
-                elif self._state == 'finish':
-                    self._menus['finish'].handle_event(event)
+                elif self._state in ('tutorial', 'dead', 'win', 'finish'):
+                    self._menus[self._state].handle_event(event)
                 else:
                     if event.type == pg.MOUSEBUTTONDOWN:
                         self._restarted = 0
-                        if self._state == 'tutorial':
-                            self._state = 'alive'
                     elif (event.type == pg.MOUSEBUTTONUP
                         and can_launch
                         and not self._restarted):
@@ -572,8 +609,18 @@ class Game(object):
                         sound = self._sounds['launch']
                         sound.set_volume(vector.magnitude())
                         sound.play()
-           
-            if self._state == 'dead':
+            
+            if self._state == 'tutorial':
+                self._level.update(rel_game_speed)
+                # self._camera.update(rel_game_speed, self._puck.pos)
+                self._camera.render(self._surface)
+                self._darken_surf()
+                self._menus['tutorial'].update(
+                    rel_game_speed, mouse_pos, mouse,
+                )
+                self._menus['tutorial'].render(self._surface)
+                self._render_hud(can_launch)
+            elif self._state == 'dead':
                 self._end(
                     rel_game_speed,
                     mouse_pos,
@@ -649,31 +696,8 @@ class Game(object):
                     )
                     # Triangle
                     pg.draw.polygon(self._surface, (0, 255, 0), points)
-                ## HUD and tutorial
-                offset = (8 / self._SURF_RATIO[0], 8 / self._SURF_RATIO[1])
-                surf = gen_text_surf(self._font, str(self._puck.health))
-                # tutorial needs offset and surf dimensions so placed here
-                if self._state == 'tutorial':
-                    self._render_tutorial(surf.size, offset)
-                self._surface.blit(surf, offset)
-                if can_launch: # Launch Indicator
-                    surf = pg.transform.scale(
-                        self._images['launch']['can'], (32, 32),
-                    )
-                    self._surface.blit(
-                        surf,
-                        (self._SURF_SIZE[0] - offset[0] - surf.width,
-                         offset[1]),
-                    )
-                else:
-                    surf = pg.transform.scale(
-                        self._images['launch']['cant'], (32, 32),
-                    )
-                    self._surface.blit(
-                        surf,
-                        (self._SURF_SIZE[0] - offset[0] - surf.width,
-                         offset[1]),
-                    )
+                self._render_hud(can_launch)
+                    
             resized_surf = pg.transform.scale(self._surface, self._SCREEN_SIZE)
             self._screen.blit(resized_surf, (0, 0))
 
