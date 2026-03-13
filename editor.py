@@ -71,7 +71,7 @@ class Game(object):
             load_img('specials', 'boost_down.png'),
             load_img('specials', 'boost_left.png'),
             load_img('specials', 'boost_right.png'),
-            load_img('specials', 'damage.png'),
+            load_img('specials', 'damage_10.png'),
             load_img('specials', 'win.png'),
             load_img('specials', 'trophy.png'),
             load_img('specials', 'star.png'),
@@ -96,6 +96,15 @@ class Game(object):
             [[[1, 0], [0, 0]], # TRIANGLE4
              [[0, 0], [0, 1]],
              [[0, 1], [1, 0]]],
+            [[[11 / 32, 0], [21 / 32, 0]], # DAMAGE
+             [[32 / 32, 11 / 32], [32 / 32, 21 / 32]],
+             [[21 / 32, 32 / 32], [11 / 32, 32 / 32]],
+             [[0, 21 / 32], [0, 11 / 32]],
+             [[0, 11 / 32], [11 / 32, 0]],
+             [[21 / 32, 0], [32 / 32, 11 / 32]],
+             [[32 / 32, 21 / 32], [21 / 32, 32 / 32]],
+             [[11 / 32, 32 / 32], [0, 21 / 32]]],
+
         ]
         self._types = [
             'normal',

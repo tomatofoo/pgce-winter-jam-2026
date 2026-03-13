@@ -104,7 +104,7 @@ class Game(object):
                 load_img('specials', 'boost_down.png'),
                 load_img('specials', 'boost_left.png'),
                 load_img('specials', 'boost_right.png'),
-                load_img('specials', 'damage.png', alpha=1),
+                load_img('specials', 'damage_10.png', alpha=1),
                 load_img('specials', 'win.png'),
                 load_img('specials', 'trophy.png', alpha=1),
                 load_img('specials', 'star.png', alpha=1),
@@ -128,33 +128,19 @@ class Game(object):
         ## Data
         # health and par amounts for each level
         # Also used to determine number of levels
-        self._health = (
-            10,
-            12,
-            9,
-            18,
-            24,
-            22,
-        )
-        self._par = (
-            2,
-            3,
-            1,
-            2,
-            1,
-            1,
-        )
+        self._health = (10, 12, 9, 18, 24, 22, 31, 22, 100, )
+        self._par = (2, 3, 1, 2, 1, 1, 2, 2, 1, )
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
             'boost_down': Boost('down', sound=self._sounds['boost']),
             'boost_left': Boost('left', sound=self._sounds['boost']),
             'boost_right': Boost('right', sound=self._sounds['boost']),
-            'damage': Damage(10),
+            'damage': Damage(5, sound=self._sounds['damage']),
             'win': Function(self._win, one_for_all=1),
             'star': Function(self._star),
         }
         # REMINDME: MAKESURE TO SET LEVEL DEX TO ZERO BEFORE SUBMITTING
-        self._level_dex = 2
+        self._level_dex = 8
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
