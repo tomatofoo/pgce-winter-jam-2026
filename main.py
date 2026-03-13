@@ -129,7 +129,7 @@ class Game(object):
         # health and par amounts for each level
         # Also used to determine number of levels
         self._health = (10, 12, 9, 18, 24, 22, 31, 22, 26, 30)
-        self._par = (2, 3, 1, 2, 1, 1, 2, 2, 1, 2, 1)
+        self._par = (2, 3, 1, 2, 1, 1, 2, 2, 2, 1)
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
             'boost_down': Boost('down', sound=self._sounds['boost']),
