@@ -74,6 +74,7 @@ class Game(object):
         self._font = pg.font.SysFont('Arial', int(self._SURF_SIZE[1] / 15))
         # using alpha in images instead of colorkey for shadow
         self._images = {
+            'logo': load_img('logo.png', alpha=1),
             'launch': {
                 'can': load_img('launch', 'can.png', alpha=1),
                 'cant': load_img('launch', 'cant.png', alpha=1),
@@ -279,6 +280,10 @@ class Game(object):
 
         self._menus = {
             'tutorial': Menu({
+                Widget(
+                    self._images['logo'],
+                    (self._SURF_SIZE[0] / 2, self._SURF_SIZE[1] * 0.2)
+                ),
                 self._widgets['tutorial']['arrow'],
                 self._widgets['tutorial']['restart'],
                 self._widgets['tutorial']['stroke'],
