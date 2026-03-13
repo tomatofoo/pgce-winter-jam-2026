@@ -128,8 +128,8 @@ class Game(object):
         ## Data
         # health and par amounts for each level
         # Also used to determine number of levels
-        self._health = (10, 12, 9, 18, 24, 22, 31, 22, 100, )
-        self._par = (2, 3, 1, 2, 1, 1, 2, 2, 1, )
+        self._health = (10, 12, 9, 18, 24, 22, 31, 22, 23, 100, )
+        self._par = (2, 3, 1, 2, 1, 1, 2, 2, 1, 1, )
         self._specials = {
             'boost_up': Boost('up', sound=self._sounds['boost']),
             'boost_down': Boost('down', sound=self._sounds['boost']),
@@ -140,7 +140,7 @@ class Game(object):
             'star': Function(self._star),
         }
         # REMINDME: MAKESURE TO SET LEVEL DEX TO ZERO BEFORE SUBMITTING
-        self._level_dex = 7
+        self._level_dex = 9
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
