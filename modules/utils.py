@@ -1,6 +1,7 @@
 import os
 import math
 import json
+from typing import Optional
 from numbers import Real
 
 import pygame as pg
@@ -40,19 +41,56 @@ def load_tilemap(number: int) -> dict:
 def gen_tile_key(obj: Point):
     return f'{int(math.floor(obj[0]))};{int(math.floor(obj[1]))}'
 
-def get_line_x(line: tuple[Point], y: Real) -> Real:
+def get_line_x(line: tuple[Point], y: Real, do_clamp: bool=True) -> Optional[Real]:
     point0 = pg.Vector2(line[0])
     point1 = pg.Vector2(line[1])
-    difference = point1[1] - point0[1]
-    t = (y - point0[1]) / difference if difference else 0.5
-    return pg.math.lerp(point0[0], point1[0], t)
+    try:
+        return pg.math.lerp(
+            point0[0], point1[0],
+            pg.math.invlerp(point0[1], point1[1], y),
+            do_clamp,
+        )
+    except ValueError:
+        return None
 
-def get_line_y(line: tuple[Point], x: Real) -> Real:
+def get_line_y(line: tuple[Point], x: Real, do_clamp: bool=True) -> Optional[Real]:
     point0 = pg.Vector2(line[0])
     point1 = pg.Vector2(line[1])
-    difference = point1[0] - point0[0]
-    t = (x - point0[0]) / difference if difference else 0.5
-    return pg.math.lerp(point0[1], point1[1], t)
+    try: 
+        return pg.math.lerp(
+            point0[1], point1[1],
+            pg.math.invlerp(point0[0], point1[0], x),
+            do_clamp,
+        )
+    except ValueError:
+        return None
+
+def dist_ptols(pos: pg.Vector2, line: tuple[pg.Vector2, pg.Vector2]) -> Real:
+    # vector projection formula but get t parameter instead of point
+    # clamp parameter between 0 and 1
+    # then get distance to the point that the parameter is at
+    # https://stackoverflow.com/a/1501725/24845999
+    difference = line[1] - line[0]
+    if not difference:
+        return pos.distance_to(line[0])
+
+    t = pg.math.clamp(
+        difference.dot(pos - line[0]) / difference.magnitude_squared(),
+        0, 1,
+    )
+    return pos.distance_to(line[0] + t * difference)
+
+def dist_rtols(rect: pg.Rect,
+               line: tuple[pg.Vector2, pg.Vector2],
+               clipline_test: bool=1) -> Real:
+    if clipline_test and rect.clipline(line):
+        return 0
+    return min(
+        dist_ptols(pg.Vector2(rect.topleft), line),
+        dist_ptols(pg.Vector2(rect.bottomleft), line),
+        dist_ptols(pg.Vector2(rect.topright), line),
+        dist_ptols(pg.Vector2(rect.bottomright), line),
+    )
 
 def gen_text_surf(font: pg.Font,
                   text: str,

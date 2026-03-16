@@ -140,7 +140,7 @@ class Game(object):
             'star': Function(self._star),
         }
         # REMINDME: MAKESURE TO SET LEVEL DEX TO ZERO BEFORE SUBMITTING
-        self._level_dex = 0
+        self._level_dex = 7
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
@@ -157,6 +157,7 @@ class Game(object):
         
         # Menus
         self._init_menus()
+        self._end_timer = 0
         self._transition_timer = 0
 
     def _init_menus(self: Self) -> None:
@@ -421,6 +422,7 @@ class Game(object):
             self._sounds['star'].play()
 
     def _win(self: Self, entity: Entity, data: dict) -> None:
+        self._end_timer = 0
         self._transition_timer = 0
         self._state = 'win'
         self._widgets['win']['strokes'].text = (
@@ -506,8 +508,9 @@ class Game(object):
              mouse_pressed: tuple[bool],
              key: str,
              func: Callable=lambda: 1) -> None:
+        self._end_timer += rel_game_speed
         self._transition_timer += rel_game_speed
-        if self._puck.net_speed > SMALL:
+        if self._puck.net_speed > SMALL and self._end_timer < 120:
             self._transition_timer = 0
             self._level.update(rel_game_speed)
             self._puck.velocity *= 0.9**rel_game_speed
@@ -636,10 +639,13 @@ class Game(object):
             elif self._state == 'finish':
                 self._finish(rel_game_speed, mouse_pos, mouse)
             else:
-                self._puck.autosurf = 1
                 # Update
-                self._level.update(rel_game_speed)
-                self._camera.update(rel_game_speed, self._puck.pos)
+                # When FPS is too low physics will be inaccurate
+                if delta_time and 1 / delta_time > 15:
+                    self._level.update(rel_game_speed)
+                    self._camera.update(rel_game_speed, self._puck.pos)
+
+                self._puck.autosurf = 1
 
                 if self._puck.bounced:
                     self._bounces += 1
@@ -649,6 +655,7 @@ class Game(object):
                     sound.play()
 
                 if self._puck.dead:
+                    self._end_timer = 0
                     self._transition_timer = 0
                     self._state = 'dead'
                     self._widgets['dead']['strokes'].text = (

@@ -15,6 +15,7 @@ from modules.utils import SMALL
 from modules.utils import gen_tile_key
 from modules.utils import get_line_x
 from modules.utils import get_line_y
+from modules.utils import dist_rtols
 
 
 class Particle(object):
@@ -100,6 +101,10 @@ class Entity(object):
         self._max_health = health
         self._velocity = pg.Vector2(0, 0)
         self._boost = pg.Vector2(0, 0)
+
+        # scale for dist to line function (list.sort() requires a key)
+        self._dist_pos = self._pos.copy()
+        self._dist_scale = 1
 
     @property
     def surf(self: Self) -> pg.Surface:
@@ -211,13 +216,31 @@ class Entity(object):
     def dead(self: Self) -> bool:
         return self._health <= 0
     
-    def rect(self: Self, scale: Real=1) -> pg.FRect:
+    def rect(self: Self,
+             pos: Optional[pg.Vector2]=None,
+             scale: Real=1) -> pg.FRect:
+        if pos is None:
+            pos = self._pos
         rect = pg.FRect(0, 0, self._width * scale, self._width * scale)
-        rect.center = self._pos * scale
+        rect.center = pos * scale
         return rect
 
-    def _get_lines_around(self: Self,
-                          scale: Real=1) -> list[Special, tuple[Point], dict]:
+    def _dist_to_line_around(
+        self: Self,
+        line: tuple[Special, tuple[Point], dict],
+    ) -> Real:
+        return dist_rtols(
+            self.rect(self._dist_pos, self._dist_scale), line[1], 0,
+        )
+
+    def _get_lines_around(
+        self: Self,
+        scale: Real=1,
+        initial_pos: Optional[pg.Vector2]=None,
+    ) -> list[tuple[Special, tuple[Point], dict]]:
+        if initial_pos is None:
+            initial_pos = self._pos
+
         lines = []
         for offset in self._TILE_OFFSETS:
             tile = pg.Vector2(
@@ -237,6 +260,12 @@ class Entity(object):
                         ((tile + line[0]) * scale, (tile + line[1]) * scale),
                         data,
                     ))
+        
+        # sort by closest to initial pos
+        self._dist_pos = initial_pos
+        self._dist_scale = scale
+        lines.sort(key=self._dist_to_line_around)
+
         return lines
 
     def _get_special_rects_around(
@@ -258,43 +287,42 @@ class Entity(object):
 
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
+        initial_pos = self._pos.copy()
         velocity = self._velocity + self._boost
 
         bounced = (None, None) # special, data
 
         self._pos[0] += velocity[0] * rel_game_speed
-        entity_rect = self.rect(scale)
-        for special, line, data in self._get_lines_around(scale):
+        entity_rect = self.rect(scale=scale)
+        for special, line, data in self._get_lines_around(scale, initial_pos):
             if entity_rect.clipline(line):
+                top = get_line_x(line, entity_rect.top)
+                bottom = get_line_x(line, entity_rect.bottom)
+                if top is None: # if one is none both are
+                    top = line[0][0]
+                    bottom = line[1][0]
                 if velocity[0] > 0:
-                    entity_rect.right = min(
-                        get_line_x(line, entity_rect.top),
-                        get_line_x(line, entity_rect.bottom),
-                    ) - 1
+                    entity_rect.right = min(top, bottom) - 1
                     bounced = (special, data)
                 elif velocity[0] < 0:
-                    entity_rect.left = max(
-                        get_line_x(line, entity_rect.top),
-                        get_line_x(line, entity_rect.bottom),
-                    ) + 1
+                    entity_rect.left = max(top, bottom) + 1
                     bounced = (special, data)
                 self._pos[0] = entity_rect.centerx / scale
         
         self._pos[1] += velocity[1] * rel_game_speed
-        entity_rect = self.rect(scale)
-        for special, line, data in self._get_lines_around(scale):
+        entity_rect = self.rect(scale=scale)
+        for special, line, data in self._get_lines_around(scale, initial_pos):
             if entity_rect.clipline(line):
+                left = get_line_y(line, entity_rect.left)
+                right = get_line_y(line, entity_rect.right)
+                if left is None: # if one is None both are None
+                    left = line[0][1]
+                    right = line[1][1]
                 if velocity[1] > 0:
-                    entity_rect.bottom = min(
-                        get_line_y(line, entity_rect.left),
-                        get_line_y(line, entity_rect.right),
-                    ) - 1
+                    entity_rect.bottom = min(left, right) - 1
                     bounced = (special, data)
                 elif velocity[1] < 0:
-                    entity_rect.top = max(
-                        get_line_y(line, entity_rect.left),
-                        get_line_y(line, entity_rect.right),
-                    ) + 1
+                    entity_rect.top = max(left, right) + 1
                     bounced = (special, data)
                 self._pos[1] = entity_rect.centery / scale
 
@@ -358,14 +386,14 @@ class Puck(Entity):
                 initial_angle: Real,
                 vector: pg.Vector2) -> None:
         # Bounce across line
-        difference = line[1][0] - line[0][0]
         angle = math.degrees(math.atan2(
-            (line[1][1] - line[0][1]), difference,
-        )) if difference else 90
+            line[1][1] - line[0][1], line[1][0] - line[0][0],
+        ))
         vector.rotate_ip(angle + angle - initial_angle - vector.angle)
         
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
+        initial_pos = self._pos.copy()
         initial_velocity = self._velocity.copy()
         initial_boost = self._boost.copy()
         velocity = self._velocity + self._boost
@@ -374,49 +402,59 @@ class Puck(Entity):
         bounced = (None, None) # special, data
 
         self._pos[0] += velocity[0] * rel_game_speed
-        entity_rect = self.rect(scale)
-        for special, line, data in self._get_lines_around(scale):
+        entity_rect = self.rect(scale=scale)
+        for special, line, data in self._get_lines_around(scale, initial_pos):
             if entity_rect.clipline(line):
+                top = get_line_x(line, entity_rect.top)
+                bottom = get_line_x(line, entity_rect.bottom)
+                if top is None:
+                    top = line[0][0]
+                    bottom = line[1][0]
                 # The +1 is scaled down by scale (100)
                 # It accounts for inaccuracies
                 # Also btw collisions mgiht be messed up
                 # Yes I know it isn't pretty but its a game jam
                 if velocity[0] > 0:
-                    entity_rect.right = min(
-                        get_line_x(line, entity_rect.top),
-                        get_line_x(line, entity_rect.bottom),
-                    ) - 1
+                    right = min(top, bottom)
+                    # if is one of the extrema, then it will bounce like a wall
+                    if right == line[0][0] or right == line[1][0]:
+                        line = ((0, 0), (0, 1))
+                    entity_rect.right = right - 1
                     self._bounced = 1
                     bounced = (special, data)
                 elif velocity[0] < 0:
-                    entity_rect.left = max(
-                        get_line_x(line, entity_rect.top),
-                        get_line_x(line, entity_rect.bottom),
-                    ) + 1
+                    left = max(top, bottom)
+                    if left == line[0][0] or left == line[1][0]:
+                        line = ((0, 0), (0, 1))
+                    entity_rect.left = left + 1
                     self._bounced = 1
                     bounced = (special, data)
-
                 # angle would be same so don't need to scale down line
                 self._bounce(line, initial_velocity.angle, self._velocity)
                 self._bounce(line, initial_boost.angle, self._boost)
                 self._pos[0] = entity_rect.centerx / scale
         
         self._pos[1] += velocity[1] * rel_game_speed
-        entity_rect = self.rect(scale)
-        for special, line, data in self._get_lines_around(scale):
+        entity_rect = self.rect(scale=scale)
+        for special, line, data in self._get_lines_around(scale, initial_pos):
             if entity_rect.clipline(line):
+                left = get_line_y(line, entity_rect.left)
+                right = get_line_y(line, entity_rect.right)
+                if left is None:
+                    left = line[0][1]
+                    right = line[1][1]
                 if velocity[1] > 0:
-                    entity_rect.bottom = min(
-                        get_line_y(line, entity_rect.left),
-                        get_line_y(line, entity_rect.right),
-                    ) - 1
+                    bottom = min(left, right)
+                    if bottom == line[0][1] or bottom == line[1][1]:
+                        line = ((0, 0), (1, 0))
+                    entity_rect.bottom = bottom - 1
                     self._bounced = 1
                     bounced = (special, data)
                 elif velocity[1] < 0:
-                    entity_rect.top = max(
-                        get_line_y(line, entity_rect.left),
-                        get_line_y(line, entity_rect.right), 
-                    ) + 1
+                    top = max(left, right)
+                    if top == line[0][1] or top == line[1][1]:
+                        line = ((0, 0), (1, 0))
+                    entity_rect.top = top + 1
                     self._bounced = 1
                     bounced = (special, data)
 
