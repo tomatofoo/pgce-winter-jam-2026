@@ -631,9 +631,13 @@ class Game(object):
             else:
                 # Update
                 # When FPS is too low physics will be inaccurate
-                if delta_time and 1 / delta_time > 10:
-                    self._level.update(rel_game_speed)
-                    self._camera.update(rel_game_speed, self._puck.pos)
+                # This is a workaround but this is a game jam so its okay
+                if delta_time and 1 / delta_time > 15:
+                    delta_time = 1 / 15
+                    rel_game_speed = delta_time * self._GAME_SPEED
+
+                self._level.update(rel_game_speed)
+                self._camera.update(rel_game_speed, self._puck.pos)
 
                 self._puck.autosurf = 1
 
