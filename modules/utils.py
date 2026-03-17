@@ -42,8 +42,8 @@ def gen_tile_key(obj: Point):
     return f'{int(math.floor(obj[0]))};{int(math.floor(obj[1]))}'
 
 def get_line_x(line: tuple[Point], y: Real, do_clamp: bool=True) -> Optional[Real]:
-    point0 = pg.Vector2(line[0])
-    point1 = pg.Vector2(line[1])
+    point0 = line[0]
+    point1 = line[1]
     try:
         return pg.math.lerp(
             point0[0], point1[0],
@@ -54,8 +54,8 @@ def get_line_x(line: tuple[Point], y: Real, do_clamp: bool=True) -> Optional[Rea
         return None
 
 def get_line_y(line: tuple[Point], x: Real, do_clamp: bool=True) -> Optional[Real]:
-    point0 = pg.Vector2(line[0])
-    point1 = pg.Vector2(line[1])
+    point0 = line[0]
+    point1 = line[1]
     try: 
         return pg.math.lerp(
             point0[1], point1[1],
@@ -70,15 +70,20 @@ def dist_ptols(pos: pg.Vector2, line: tuple[pg.Vector2, pg.Vector2]) -> Real:
     # clamp parameter between 0 and 1
     # then get distance to the point that the parameter is at
     # https://stackoverflow.com/a/1501725/24845999
+
+    # line[0] is only guaranteed pg.Vector2
+    line = (pg.Vector2(line[0]), line[1])
     difference = line[1] - line[0]
     if not difference:
-        return pos.distance_to(line[0])
+        # pos.distance_to(line[0])
+        return line[0].distance_to(pos)
 
     t = pg.math.clamp(
         difference.dot(pos - line[0]) / difference.magnitude_squared(),
         0, 1,
     )
-    return pos.distance_to(line[0] + t * difference)
+    # return pos.distance_to(line[0] + t * difference)
+    return (line[0] + t * difference).distance_to(pos)
 
 def dist_rtols(rect: pg.Rect,
                line: tuple[pg.Vector2, pg.Vector2],
@@ -86,10 +91,18 @@ def dist_rtols(rect: pg.Rect,
     if clipline_test and rect.clipline(line):
         return 0
     return min(
-        dist_ptols(pg.Vector2(rect.topleft), line),
-        dist_ptols(pg.Vector2(rect.bottomleft), line),
-        dist_ptols(pg.Vector2(rect.topright), line),
-        dist_ptols(pg.Vector2(rect.bottomright), line),
+        dist_ptols(rect.topleft, line),
+        dist_ptols(rect.bottomleft, line),
+        dist_ptols(rect.topright, line),
+        dist_ptols(rect.bottomright, line),
+        dist_ptols(line[0], (rect.topleft, rect.topright)),
+        dist_ptols(line[0], (rect.topright, rect.bottomright)),
+        dist_ptols(line[0], (rect.bottomright, rect.bottomleft)),
+        dist_ptols(line[0], (rect.bottomleft, rect.topleft)),
+        dist_ptols(line[1], (rect.topleft, rect.topright)),
+        dist_ptols(line[1], (rect.topright, rect.bottomright)),
+        dist_ptols(line[1], (rect.bottomright, rect.bottomleft)),
+        dist_ptols(line[1], (rect.bottomleft, rect.topleft)),
     )
 
 def gen_text_surf(font: pg.Font,

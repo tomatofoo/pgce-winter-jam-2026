@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import math
 import random
 from typing import Self
@@ -236,8 +237,10 @@ class Entity(object):
     def _get_lines_around(
         self: Self,
         scale: Real=1,
+        sort: bool=1,
         initial_pos: Optional[pg.Vector2]=None,
     ) -> list[tuple[Special, tuple[Point], dict]]:
+        
         if initial_pos is None:
             initial_pos = self._pos
 
@@ -261,10 +264,11 @@ class Entity(object):
                         data,
                     ))
         
-        # sort by closest to initial pos
-        self._dist_pos = initial_pos
-        self._dist_scale = scale
-        lines.sort(key=self._dist_to_line_around)
+        if sort: # more accurate, but expensive
+            # sort by closest to initial pos
+            self._dist_pos = initial_pos
+            self._dist_scale = scale
+            lines.sort(key=self._dist_to_line_around)
 
         return lines
 
@@ -287,14 +291,13 @@ class Entity(object):
 
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
-        initial_pos = self._pos.copy()
         velocity = self._velocity + self._boost
 
         bounced = (None, None) # special, data
 
         self._pos[0] += velocity[0] * rel_game_speed
         entity_rect = self.rect(scale=scale)
-        for special, line, data in self._get_lines_around(scale, initial_pos):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 top = get_line_x(line, entity_rect.top)
                 bottom = get_line_x(line, entity_rect.bottom)
@@ -311,7 +314,7 @@ class Entity(object):
         
         self._pos[1] += velocity[1] * rel_game_speed
         entity_rect = self.rect(scale=scale)
-        for special, line, data in self._get_lines_around(scale, initial_pos):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 left = get_line_y(line, entity_rect.left)
                 right = get_line_y(line, entity_rect.right)
@@ -393,7 +396,6 @@ class Puck(Entity):
         
     def update(self: Self, rel_game_speed: Real) -> None:
         scale = 100
-        initial_pos = self._pos.copy()
         initial_velocity = self._velocity.copy()
         initial_boost = self._boost.copy()
         velocity = self._velocity + self._boost
@@ -403,7 +405,7 @@ class Puck(Entity):
 
         self._pos[0] += velocity[0] * rel_game_speed
         entity_rect = self.rect(scale=scale)
-        for special, line, data in self._get_lines_around(scale, initial_pos):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 top = get_line_x(line, entity_rect.top)
                 bottom = get_line_x(line, entity_rect.bottom)
@@ -436,7 +438,7 @@ class Puck(Entity):
         
         self._pos[1] += velocity[1] * rel_game_speed
         entity_rect = self.rect(scale=scale)
-        for special, line, data in self._get_lines_around(scale, initial_pos):
+        for special, line, data in self._get_lines_around(scale):
             if entity_rect.clipline(line):
                 left = get_line_y(line, entity_rect.left)
                 right = get_line_y(line, entity_rect.right)
