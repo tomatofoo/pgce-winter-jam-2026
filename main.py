@@ -632,7 +632,7 @@ class Game(object):
                 # Update
                 # When FPS is too low physics will be inaccurate
                 # This is a workaround but this is a game jam so its okay
-                if delta_time and 1 / delta_time > 15:
+                if delta_time > 1 / 15:
                     delta_time = 1 / 15
                     rel_game_speed = delta_time * self._GAME_SPEED
 
