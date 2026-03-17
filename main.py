@@ -582,16 +582,6 @@ class Game(object):
                 elif event.type == pg.KEYDOWN:
                     if event.key == pg.K_r:
                         self._restart()
-                elif event.type in ( # will mess up delta time
-                    pg.WINDOWRESIZED,
-                    pg.WINDOWMINIMIZED,
-                    pg.WINDOWMAXIMIZED,
-                    pg.WINDOWFOCUSGAINED,
-                    pg.WINDOWFOCUSLOST,
-                ):
-                    start_time = time.time()
-                    delta_time = 0
-                    rel_game_speed = 0
                 elif self._state in ('tutorial', 'dead', 'win', 'finish'):
                     self._menus[self._state].handle_event(event)
                 else:
