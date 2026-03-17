@@ -553,7 +553,9 @@ class Game(object):
 
         while self._running:
             # Delta time
-            delta_time = time.time() - start_time
+            # When FPS is too low physics will be inaccurate
+            # This is a workaround but this is a game jam so its okay
+            delta_time = min(time.time() - start_time, 1 / 15)
             start_time = time.time()
 
             rel_game_speed = delta_time * self._GAME_SPEED
@@ -630,12 +632,6 @@ class Game(object):
                 self._finish(rel_game_speed, mouse_pos, mouse)
             else:
                 # Update
-                # When FPS is too low physics will be inaccurate
-                # This is a workaround but this is a game jam so its okay
-                if delta_time > 1 / 15:
-                    delta_time = 1 / 15
-                    rel_game_speed = delta_time * self._GAME_SPEED
-
                 self._level.update(rel_game_speed)
                 self._camera.update(rel_game_speed, self._puck.pos)
 
