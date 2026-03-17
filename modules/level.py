@@ -238,7 +238,7 @@ class Entity(object):
         self: Self,
         scale: Real=1,
         sort: bool=1,
-        initial_pos: Optional[pg.Vector2]=None,
+        initial_pos: Optional[pg.Vector2]=None, # only applicable for sort
     ) -> list[tuple[Special, tuple[Point], dict]]:
         
         if initial_pos is None:
