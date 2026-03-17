@@ -140,7 +140,7 @@ class Game(object):
             'star': Function(self._star),
         }
         # REMINDME: MAKESURE TO SET LEVEL DEX TO ZERO BEFORE SUBMITTING
-        self._level_dex = 7
+        self._level_dex = 0
         self._puck = Puck(
             surfs=self._images['puck'][:-1],
             width=0.9,
@@ -641,7 +641,7 @@ class Game(object):
             else:
                 # Update
                 # When FPS is too low physics will be inaccurate
-                if delta_time and 1 / delta_time > 15:
+                if delta_time and 1 / delta_time > 10:
                     self._level.update(rel_game_speed)
                     self._camera.update(rel_game_speed, self._puck.pos)
 
