@@ -644,7 +644,7 @@ class Game(object):
                     sound.set_volume(self._puck.net_speed * 0.8)
                     sound.play()
 
-                if self._puck.dead:
+                if self._puck.dead and self._state != 'win':
                     self._end_timer = 0
                     self._transition_timer = 0
                     self._state = 'dead'
