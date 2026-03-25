@@ -71,7 +71,7 @@ class Game(object):
             load_img('specials', 'boost_down.png'),
             load_img('specials', 'boost_left.png'),
             load_img('specials', 'boost_right.png'),
-            load_img('specials', 'damage_10.png'),
+            load_img('specials', 'damage_5.png'),
             load_img('specials', 'win.png'),
             load_img('specials', 'trophy.png'),
             load_img('specials', 'star.png'),

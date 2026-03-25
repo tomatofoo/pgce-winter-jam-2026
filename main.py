@@ -104,7 +104,7 @@ class Game(object):
                 load_img('specials', 'boost_down.png'),
                 load_img('specials', 'boost_left.png'),
                 load_img('specials', 'boost_right.png'),
-                load_img('specials', 'damage_10.png', alpha=1),
+                load_img('specials', 'damage_5.png', alpha=1),
                 load_img('specials', 'win.png'),
                 load_img('specials', 'trophy.png', alpha=1),
                 load_img('specials', 'star.png', alpha=1),
@@ -135,7 +135,7 @@ class Game(object):
             'boost_down': Boost('down', sound=self._sounds['boost']),
             'boost_left': Boost('left', sound=self._sounds['boost']),
             'boost_right': Boost('right', sound=self._sounds['boost']),
-            'damage': Damage(5, sound=self._sounds['damage']),
+            'damage': Damage(4, sound=self._sounds['damage']),
             'win': Function(self._win, one_for_all=1),
             'star': Function(self._star),
         }
